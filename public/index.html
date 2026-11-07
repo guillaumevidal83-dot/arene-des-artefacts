@@ -67,6 +67,14 @@ button{font-family:Rubik,sans-serif;cursor:pointer}
 .m-colisee{background:linear-gradient(135deg,#c9995c,#8a6236)}
 .m-jungle{background:linear-gradient(135deg,#2f6b33,#163d1c)}
 .m-urbain{background:linear-gradient(135deg,#5b606c,#2d3038)}
+.m-desert{background:linear-gradient(135deg,#e2b36a,#a8692f)}
+.m-espace{background:linear-gradient(135deg,#3b2d6b,#0d0b24)}
+.m-glace{background:linear-gradient(135deg,#bfe3f2,#5d8fb0)}
+.m-dinos{background:linear-gradient(135deg,#7da33f,#4a2f17)}
+.m-apo{background:linear-gradient(135deg,#8a8264,#3a3328)}
+.room.m-dinos{border-left-color:#7da33f}.room.m-apo{border-left-color:#9c8a5a}
+.room.m-desert{border-left-color:#d49a4a}.room.m-espace{border-left-color:#6a55c9}.room.m-glace{border-left-color:#8fd0ec}
+.pl.dc{opacity:.5}
 
 /* ---------- salon */
 .code{font-family:Bungee,sans-serif;font-size:30px;color:var(--gold);letter-spacing:4px}
@@ -108,8 +116,20 @@ td.num,th.num{text-align:center}
 
 #toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#000c;color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-weight:600;font-size:15px;pointer-events:none;transition:opacity .3s;opacity:0;max-width:90vw;text-align:center}
 #toast.show{opacity:1}
-#menuBtn{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:8px;background:#0008;color:#fff;border:1px solid #fff4;border-radius:8px;padding:5px 10px;font-size:12px}
+#gameInvite{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));background:rgba(20,14,8,.75);color:#ffd98a;
+  border:2px solid #f2b84b;border-radius:10px;padding:8px 14px;font-weight:800;font-size:14px;touch-action:manipulation}
+#gameInvite b{font-family:Bungee,Rubik,sans-serif;font-weight:400;letter-spacing:1px;margin-left:4px}
 .small{font-size:13px;color:var(--mute)}
+.rooms{display:flex;flex-direction:column;gap:8px}
+.room{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:12px;padding:10px 12px;border-left:6px solid var(--line)}
+.room.m-colisee{border-left-color:#c9995c}.room.m-jungle{border-left-color:#3f8a3a}.room.m-urbain{border-left-color:#7a808e}
+.room .ri{font-size:26px}
+.room .rt{flex:1;min-width:0}
+.room .rh{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .rs{font-size:12px;color:var(--mute);margin-top:2px}
+.room .st{font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.st.lobby{background:#1f4a2a;color:var(--ok)}.st.playing{background:#4a3618;color:var(--gold2)}.st.ended{background:#333;color:#aaa}
+.room .btn{padding:10px 14px;font-size:14px}
 .hint{font-size:12px;color:var(--mute);text-align:center}
 </style>
 </head>
@@ -129,6 +149,15 @@ td.num,th.num{text-align:center}
     </div>
     <button class="btn wide" id="btnJoin">Rejoindre la partie</button>
     <button class="btn wide" id="btnCreate">Créer une partie</button>
+    <div class="card">
+      <h2>Rejoindre une partie</h2>
+      <div class="row" style="flex-wrap:nowrap">
+        <input type="text" id="codeIn" maxlength="6" placeholder="Code (ex. AB3K7)" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px">
+        <button class="btn" id="btnCode" style="white-space:nowrap">Rejoindre</button>
+      </div>
+      <div class="lbl">Parties en cours <span id="roomsInfo"></span></div>
+      <div class="rooms" id="roomList"><div class="wait">Chargement…</div></div>
+    </div>
     <div class="hint" id="pcHint">Sur ordinateur : ZQSD/WASD pour bouger, souris pour viser, clic = attaque, E et R = compétences.</div>
   </div>
 </div>
@@ -145,12 +174,19 @@ td.num,th.num{text-align:center}
         <h2>Réglages <span class="small" id="cfgWho"></span></h2>
         <div class="lbl" style="margin-top:0">Carte</div>
         <div class="maps" id="cfgMap"></div>
-        <div class="lbl">Durée</div>
-        <div class="chips" id="cfgDur"></div>
-        <div class="lbl">Score à atteindre (éliminations)</div>
-        <div class="chips" id="cfgScore"></div>
-        <div class="lbl">Mode</div>
-        <div class="chips" id="cfgTeams"></div>
+        <div class="lbl">Mode de jeu</div>
+        <div class="chips" id="cfgMode"></div>
+        <div id="cfgPvp">
+          <div class="lbl">Durée</div>
+          <div class="chips" id="cfgDur"></div>
+          <div class="lbl">Score à atteindre (éliminations)</div>
+          <div class="chips" id="cfgScore"></div>
+        </div>
+        <div id="cfgSurv" class="hidden">
+          <div class="lbl">Vies par joueur</div>
+          <div class="chips" id="cfgLives"></div>
+          <div class="small" style="margin-top:8px">Tous ensemble contre des vagues d'ennemis de plus en plus fortes, avec un boss toutes les 5 vagues. Tenez le plus longtemps possible !</div>
+        </div>
       </div>
       <div class="card">
         <h2>Joueurs <span class="small" id="pCount"></span></h2>
@@ -162,6 +198,7 @@ td.num,th.num{text-align:center}
     </div>
     <button class="btn wide" id="btnStart">⚔️ Lancer la partie</button>
     <div class="wait hidden" id="waitHost">En attente du lancement par l'hôte…</div>
+    <button class="btn ghost wide btnLeave">Quitter le salon</button>
   </div>
 </div>
 
@@ -173,6 +210,7 @@ td.num,th.num{text-align:center}
     <div class="card"><table><thead><tr><th>#</th><th>Joueur</th><th class="num">⚔️ Élim.</th><th class="num">☠️ Morts</th></tr></thead><tbody id="endRows"></tbody></table></div>
     <button class="btn wide" id="btnAgain">🔁 Rejouer</button>
     <div class="wait hidden" id="waitAgain">L'hôte peut relancer une partie…</div>
+    <button class="btn ghost wide btnLeave">Retour à l'accueil</button>
   </div>
 </div>
 
@@ -180,8 +218,9 @@ td.num,th.num{text-align:center}
 <div class="screen hidden" id="sLost">
   <div class="wrap" style="padding-top:12vh;text-align:center">
     <h1 style="font-size:30px">Connexion perdue</h1>
-    <p class="tag">Le serveur ne répond plus.</p>
-    <button class="btn" onclick="location.reload()">Recharger</button>
+    <p class="tag" id="lostMsg">Le serveur ne répond plus.</p>
+    <button class="btn" onclick="location.reload()">Réessayer</button>
+    <button class="btn ghost" onclick="location.href='/'">Accueil</button>
   </div>
 </div>
 
@@ -193,6 +232,7 @@ td.num,th.num{text-align:center}
   <button class="tb" id="bS2"><span class="e">✧</span><span class="s"></span><i class="cd"></i><b class="cn"></b></button>
   <button class="tb" id="bAtk"><span class="e">⚔️</span><span class="s">Attaque</span><i class="cd"></i></button>
 </div>
+<button id="gameInvite" class="hidden">📤 Inviter <b id="gameCode"></b></button>
 <div id="rotate"><div class="ph">📱</div>Tourne ton téléphone<br>en mode paysage</div>
 <div id="toast"></div>
 

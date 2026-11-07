@@ -81,10 +81,20 @@ en plein écran, comme une vraie appli.
 
 ---
 
-## 4. Règles du jeu
+## 4. Modes de jeu
+
+- **Chacun pour soi** et **2 équipes** : la partie se joue au chrono ou au score.
+- **🛡️ Survie (coop)** : tous les joueurs sont dans la même équipe contre des vagues d'ennemis
+  de plus en plus nombreuses et résistantes. Un **boss** arrive toutes les 5 vagues et lâche 3 artefacts.
+  L'hôte choisit le nombre de **vies par joueur** (1, 3, 5 ou 10). Chaque vague repoussée soigne
+  les survivants de 25 %. La partie s'arrête quand plus personne n'a de vie : le but est d'aller
+  le plus loin possible. Toutes les cartes sont jouables en survie.
+
+## 5. Règles du jeu
 
 - **10 artefacts = évolution** : +50 % de vie, +30 % de dégâts, nouvelles compétences.
-- Les artefacts apparaissent au hasard sur la carte et tombent des PNJ vaincus (70 % de chance).
+- Chaque artefact ramassé **soigne 5 % de la vie maximale**.
+- Les artefacts sont rares : quelques-uns apparaissent au hasard sur la carte, et les PNJ vaincus en lâchent un 1 fois sur 3.
 - **À la mort, on perd 1 artefact** (il tombe au sol, le tueur peut le ramasser).
   Sous 10 artefacts, l'évolution est perdue.
 - Réapparition après 3 secondes, avec 1,5 seconde d'invulnérabilité.
@@ -94,17 +104,25 @@ en plein écran, comme une vraie appli.
 | Classe | Compétence 1 | Compétence 2 | Évolution | Compétence 1 | Compétence 2 |
 |---|---|---|---|---|---|
 | 🔮 Mage | Boule de feu (explose en zone) | Téléportation | **Liche** | Nuée d'âmes (7 projectiles) | Invoque 2 squelettes |
-| 🪓 Barbare | Charge (renverse et étourdit) | Tourbillon | **Golem** | Séisme (zone, étourdit) | Carapace (−50 % dégâts) |
-| 🥷 Ninja | 3 shurikens | Invisibilité (attaque surprise +50 %) | **Serpent géant** | Morsure venimeuse | Constriction (immobilise) |
+| 🪓 Barbare | Charge (renverse et étourdit) | Tourbillon | **Golem** | Séisme (zone, étourdit) | Carapace 6 s (−70 % dégâts, renvoie 30 %, insensible aux étourdissements) |
+| 🥷 Ninja | 3 shurikens | Invisibilité 5 s (cassée dès qu'il attaque, attaque surprise +50 %) | **Serpent géant** | Morsure venimeuse | Constriction (immobilise) |
 
 ### Cartes et PNJ
 - 🏛️ **Colisée romain** : gladiateurs et lions
 - 🌴 **Jungle amazonienne** : jaguars et guerriers lanceurs de lances
 - 🏙️ **Zone urbaine** : voyous et drones tireurs
+- 🏜️ **Désert** : scorpions et nomades archers — les **sables mouvants** ralentissent fortement
+- 🪐 **Planète spatiale** : aliens et sentinelles à plasma
+- 🧊 **Désert glacé** : loups des glaces et yétis — les **geysers** bouillonnent (cercle rouge) puis jaillissent et blessent
+- 🦖 **Monde des dinosaures** : raptors, dilophosaures cracheurs d'acide et T-Rex
+- ☣️ **Zone post-apo** : zombies, zombies coureurs et gros zombies
+
+Si ton téléphone coupe la connexion (partage du lien, appel…), le jeu se reconnecte tout seul
+et tu gardes ta place (et ton statut d'hôte) pendant 45 secondes.
 
 ---
 
-## 5. Modifier l'équilibrage
+## 6. Modifier l'équilibrage
 
 Tout est dans `server.js` :
 - `CLS` : vie et vitesse des classes
@@ -113,4 +131,4 @@ Tout est dans `server.js` :
 - `MOBS` : statistiques des PNJ
 
 Options de test (à ne pas utiliser en ligne) : `TEST_ARTS=10 node server.js` fait démarrer
-tout le monde évolué ; `TEST_DURATION=30` raccourcit la partie à 30 secondes.
+tout le monde évolué ; `TEST_DURATION=30` raccourcit la partie à 30 secondes ; `TEST_WAVE=4` fait commencer la survie à la vague 5.

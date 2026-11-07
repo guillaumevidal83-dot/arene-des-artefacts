@@ -14,7 +14,7 @@ const TICK = 60;            // simulations par seconde
 const SEND_EVERY = 3;       // => 20 envois par seconde
 const DT = 1 / TICK;
 // options de test (laisser vides en production)
-const TEST_ARTS = +process.env.TEST_ARTS || 0, TEST_DURATION = +process.env.TEST_DURATION || 0;
+const TEST_ARTS = +process.env.TEST_ARTS || 0, TEST_DURATION = +process.env.TEST_DURATION || 0, TEST_WAVE = +process.env.TEST_WAVE || 0;
 
 // ---------------------------------------------------------------- HTTP
 const MIME = {
@@ -31,8 +31,9 @@ const server = http.createServer((req, res) => {
       const host = r.players.get(r.host);
       return {
         code: r.id, host: host ? host.name : '?', players: r.players.size, max: MAX_PLAYERS,
-        state: r.state, map: r.cfg.map, teams: r.cfg.teams, duration: r.cfg.duration,
-        left: r.state === 'playing' ? Math.max(0, Math.ceil(r.endAt - r.t)) : null
+        state: r.state, map: r.cfg.map, teams: r.cfg.teams, duration: r.cfg.duration, survival: r.cfg.survival, lives: r.cfg.lives,
+        wave: r.state === 'playing' && r.cfg.survival ? r.wave : null,
+        left: r.state === 'playing' && !r.cfg.survival ? Math.max(0, Math.ceil(r.endAt - r.t)) : null
       };
     }).sort((a, b) => (a.state === 'lobby' ? 0 : 1) - (b.state === 'lobby' ? 0 : 1) || b.players - a.players);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -141,14 +142,32 @@ const MOBS = {
   guerrier:   { hp: 60, spd: 110, r: 17, dmg: 9,  range: 380, cd: 1.6, melee: false, proj: 'spear' },
   voyou:      { hp: 60, spd: 130, r: 17, dmg: 9,  range: 46,  cd: 0.9, melee: true },
   drone:      { hp: 40, spd: 150, r: 14, dmg: 7,  range: 400, cd: 1.3, melee: false, proj: 'laser' },
-  squelette:  { hp: 35, spd: 175, r: 15, dmg: 8,  range: 44,  cd: 0.8, melee: true }
+  squelette:  { hp: 35, spd: 175, r: 15, dmg: 8,  range: 44,  cd: 0.8, melee: true },
+  scorpion:   { hp: 55, spd: 150, r: 16, dmg: 9,  range: 44,  cd: 0.9, melee: true },
+  nomade:     { hp: 55, spd: 115, r: 17, dmg: 8,  range: 380, cd: 1.5, melee: false, proj: 'arrow' },
+  alien:      { hp: 55, spd: 165, r: 16, dmg: 9,  range: 44,  cd: 0.85, melee: true },
+  sentinelle: { hp: 50, spd: 120, r: 15, dmg: 8,  range: 420, cd: 1.4, melee: false, proj: 'plasma' },
+  loup:       { hp: 50, spd: 185, r: 16, dmg: 8,  range: 44,  cd: 0.8, melee: true },
+  yeti:       { hp: 110, spd: 100, r: 24, dmg: 16, range: 54, cd: 1.4, melee: true },
+  raptor:     { hp: 45,  spd: 200, r: 15, dmg: 8,  range: 44,  cd: 0.7, melee: true },
+  dilopho:    { hp: 55,  spd: 120, r: 17, dmg: 8,  range: 360, cd: 1.5, melee: false, proj: 'acid' },
+  trex:       { hp: 160, spd: 105, r: 30, dmg: 20, range: 66,  cd: 1.6, melee: true },
+  zombie:     { hp: 60,  spd: 85,  r: 16, dmg: 10, range: 44,  cd: 1.1, melee: true },
+  coureur:    { hp: 35,  spd: 195, r: 15, dmg: 7,  range: 42,  cd: 0.7, melee: true },
+  tank:       { hp: 170, spd: 70,  r: 27, dmg: 18, range: 60,  cd: 1.6, melee: true }
 };
 
 // ---------------------------------------------------------------- Cartes
 const MAP_W = 2200, MAP_H = 1500;
-const MAP_MOBS = { colisee: ['gladiateur', 'lion'], jungle: ['jaguar', 'guerrier'], urbain: ['voyou', 'drone'] };
+const MAP_MOBS = {
+  colisee: ['gladiateur', 'lion'], jungle: ['jaguar', 'guerrier'], urbain: ['voyou', 'drone'],
+  desert: ['scorpion', 'nomade'], espace: ['alien', 'sentinelle'], glace: ['loup', 'yeti'],
+  dinos: ['raptor', 'raptor', 'dilopho', 'trex'], apo: ['zombie', 'zombie', 'coureur', 'tank']
+};
+const MAP_KEYS = Object.keys(MAP_MOBS);
 function buildMap(key) {
-  const W = MAP_W, H = MAP_H, R = seeded(key === 'jungle' ? 7 : key === 'urbain' ? 13 : 3), obs = [];
+  const W = MAP_W, H = MAP_H, R = seeded({ colisee: 3, jungle: 7, urbain: 13, desert: 21, espace: 34, glace: 55, dinos: 89, apo: 144 }[key] || 1), obs = [], haz = [];
+  const hazFree = (x, y, r) => haz.every(h => Math.hypot(h.x - x, h.y - y) > h.r + r + 60) && !blocked({ w: W, h: H, obs }, x, y, r * 0.6);
   const okFar = (x, y, r, gap) => obs.every(o => o.t === 'c' ? Math.hypot(o.x - x, o.y - y) > o.r + r + gap
     : !(x > o.x - r - gap && x < o.x + o.w + r + gap && y > o.y - r - gap && y < o.y + o.h + r + gap));
   if (key === 'colisee') {
@@ -170,6 +189,76 @@ function buildMap(key) {
       const r = 28 + R() * 28, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
       if (okFar(x, y, r, 85)) { obs.push({ t: 'c', x, y, r }); n++; }
     }
+  } else if (key === 'desert') {
+    // mesas de grès
+    for (let i = 0, n = 0; i < 800 && n < 8; i++) {
+      const w = 110 + R() * 120, h = 80 + R() * 90, x = 80 + R() * (W - 330), y = 80 + R() * (H - 260);
+      if (okFar(x + w / 2, y + h / 2, Math.max(w, h) / 2, 150)) { obs.push({ t: 'r', x, y, w, h, mesa: 1 }); n++; }
+    }
+    // cactus
+    for (let i = 0, n = 0; i < 3000 && n < 24; i++) {
+      const r = 14 + R() * 6, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
+      if (okFar(x, y, r, 110)) { obs.push({ t: 'c', x, y, r, cactus: 1 }); n++; }
+    }
+    // sables mouvants (ralentissent)
+    for (let i = 0, n = 0; i < 3000 && n < 8; i++) {
+      const r = 85 + R() * 70, x = 150 + R() * (W - 300), y = 150 + R() * (H - 300);
+      if (hazFree(x, y, r)) { haz.push({ t: 'sand', x: Math.round(x), y: Math.round(y), r: Math.round(r) }); n++; }
+    }
+  } else if (key === 'espace') {
+    // modules de station
+    const mods = [[260, 220, 260, 120], [W - 520, 230, 260, 120], [260, H - 340, 120, 220], [W - 380, H - 420, 120, 240], [W / 2 - 150, H / 2 - 60, 300, 120]];
+    for (const [x, y, w, h] of mods) obs.push({ t: 'r', x, y, w, h, mod: 1 });
+    // astéroïdes
+    for (let i = 0, n = 0; i < 3000 && n < 30; i++) {
+      const r = 24 + R() * 40, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
+      if (okFar(x, y, r, 95)) { obs.push({ t: 'c', x, y, r, rock: 1 }); n++; }
+    }
+  } else if (key === 'glace') {
+    // blocs de glace
+    for (let i = 0, n = 0; i < 800 && n < 9; i++) {
+      const w = 80 + R() * 90, h = 60 + R() * 70, x = 80 + R() * (W - 260), y = 80 + R() * (H - 220);
+      if (okFar(x + w / 2, y + h / 2, Math.max(w, h) / 2, 140)) { obs.push({ t: 'r', x, y, w, h, ice: 1 }); n++; }
+    }
+    // sapins enneigés
+    for (let i = 0, n = 0; i < 3000 && n < 30; i++) {
+      const r = 24 + R() * 18, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
+      if (okFar(x, y, r, 90)) { obs.push({ t: 'c', x, y, r, pine: 1 }); n++; }
+    }
+    // geysers (blessent quand ils jaillissent)
+    for (let i = 0, n = 0; i < 3000 && n < 9; i++) {
+      const r = 62, x = 150 + R() * (W - 300), y = 150 + R() * (H - 300);
+      if (hazFree(x, y, r)) { haz.push({ t: 'geyser', x: Math.round(x), y: Math.round(y), r, ph: Math.round(R() * 50) / 10 }); n++; }
+    }
+  } else if (key === 'dinos') {
+    // gros rochers volcaniques
+    for (let i = 0, n = 0; i < 3000 && n < 14; i++) {
+      const r = 40 + R() * 40, x = 80 + R() * (W - 160), y = 80 + R() * (H - 160);
+      if (okFar(x, y, r, 130)) { obs.push({ t: 'c', x, y, r, boulder: 1 }); n++; }
+    }
+    // fougères géantes
+    for (let i = 0, n = 0; i < 3000 && n < 30; i++) {
+      const r = 22 + R() * 22, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
+      if (okFar(x, y, r, 85)) { obs.push({ t: 'c', x, y, r, fern: 1 }); n++; }
+    }
+    // squelette de dino géant
+    if (okFar(W / 2, H / 2, 140, 20)) obs.push({ t: 'r', x: W / 2 - 130, y: H / 2 - 20, w: 260, h: 40, bones: 1 });
+  } else if (key === 'apo') {
+    // immeubles en ruine
+    for (let i = 0, n = 0; i < 800 && n < 9; i++) {
+      const w = 130 + R() * 130, h = 110 + R() * 110, x = 80 + R() * (W - 360), y = 80 + R() * (H - 300);
+      if (okFar(x + w / 2, y + h / 2, Math.max(w, h) / 2, 150)) { obs.push({ t: 'r', x, y, w, h, ruin: 1, seed: n }); n++; }
+    }
+    // épaves de voitures
+    for (let i = 0, n = 0; i < 2000 && n < 12; i++) {
+      const hor = R() < 0.5, w = hor ? 78 : 38, h = hor ? 38 : 78, x = 40 + R() * (W - 120), y = 40 + R() * (H - 120);
+      if (okFar(x + w / 2, y + h / 2, 42, 50)) { obs.push({ t: 'r', x, y, w, h, wreck: 1 }); n++; }
+    }
+    // barils
+    for (let i = 0, n = 0; i < 2000 && n < 14; i++) {
+      const r = 15, x = 60 + R() * (W - 120), y = 60 + R() * (H - 120);
+      if (okFar(x, y, r, 80)) { obs.push({ t: 'c', x, y, r, barrel: 1 }); n++; }
+    }
   } else { // urbain
     const st = 180, bw = (W - 5 * st) / 4, bh = (H - 4 * st) / 3;
     for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
@@ -182,7 +271,7 @@ function buildMap(key) {
       if (okFar(x + w / 2, y + h / 2, 40, 45)) { obs.push({ t: 'r', x, y, w, h, car: 1 + (n % 5) }); n++; }
     }
   }
-  return { key, w: W, h: H, obs };
+  return { key, w: W, h: H, obs, haz };
 }
 function blocked(map, x, y, r) {
   if (x < r || y < r || x > map.w - r || y > map.h - r) return true;
@@ -222,6 +311,8 @@ function freeSpot(map, r, accept) {
   return { x: map.w / 2, y: map.h / 2 - 150 };
 }
 
+const GEYSER = { isMob: true, type: 'geyser', owner: null, dead: false, hp: null };
+
 // ---------------------------------------------------------------- Salons
 const rooms = new Map();
 function roomCode() {
@@ -230,13 +321,17 @@ function roomCode() {
   return s;
 }
 function cleanCfg(c, prev) {
-  c = c || {}; const p = prev || { map: 'colisee', duration: 10, score: 0, teams: false };
-  return {
-    map: ['colisee', 'jungle', 'urbain'].includes(c.map) ? c.map : p.map,
+  c = c || {}; const p = prev || { map: 'colisee', duration: 10, score: 0, teams: false, survival: false, lives: 3 };
+  const o = {
+    map: MAP_KEYS.includes(c.map) ? c.map : p.map,
     duration: [3, 5, 10, 15].includes(+c.duration) ? +c.duration : p.duration,
     score: [0, 10, 20, 30].includes(+c.score) ? +c.score : p.score,
-    teams: typeof c.teams === 'boolean' ? c.teams : p.teams
+    teams: typeof c.teams === 'boolean' ? c.teams : p.teams,
+    survival: typeof c.survival === 'boolean' ? c.survival : !!p.survival,
+    lives: [1, 3, 5, 10].includes(+c.lives) ? +c.lives : (p.lives || 3)
   };
+  if (o.survival) o.teams = false;
+  return o;
 }
 const cleanName = n => (String(n || '').replace(/[<>]/g, '').trim().slice(0, 14)) || 'Joueur';
 const cleanCls = c => CLS[c] ? c : 'mage';
@@ -252,35 +347,57 @@ class Room {
   roster() {
     this.broadcast({
       t: 'roster', host: this.host, state: this.state, cfg: this.cfg, ts: this.teamScore || [0, 0],
-      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls, team: p.team, kills: p.kills, deaths: p.deaths }))
+      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls, team: p.team, kills: p.kills, deaths: p.deaths, dc: p.disconnected ? 1 : 0 }))
     });
     this.rosterDirty = false;
   }
   ev(e) { this.events.push(e); }
-  mapInfo() { return { key: this.map.key, w: this.map.w, h: this.map.h, obs: this.map.obs }; }
+  mapInfo() { return { key: this.map.key, w: this.map.w, h: this.map.h, obs: this.map.obs, haz: this.map.haz }; }
+  welcome(p) {
+    const c = p.conn;
+    c.send({ t: 'joined', id: p.id, room: this.id, host: this.host, state: this.state, cfg: this.cfg, token: p.token });
+    if (this.state === 'playing') c.send({ t: 'start', map: this.mapInfo(), cfg: this.cfg });
+    if (this.state === 'ended' && this.lastEnd) c.send(this.lastEnd);
+  }
+  // connexion coupée (appli en arrière-plan, partage du lien…) : on garde la place 45 s
+  disconnect(p) {
+    if (!this.players.has(p.id)) return;
+    p.disconnected = true; p.in = { mx: 0, my: 0, a: null, b: 0 };
+    clearTimeout(p.dropTimer);
+    p.dropTimer = setTimeout(() => { if (p.disconnected && this.players.get(p.id) === p) this.removePlayer(p); }, 45000);
+    this.roster();
+  }
+  resume(p, conn) {
+    if (p.conn && p.conn !== conn) { p.conn.onclose = null; p.conn.close(); }
+    clearTimeout(p.dropTimer); p.disconnected = false;
+    p.conn = conn; conn.room = this; conn.p = p;
+    this.welcome(p); this.roster();
+  }
 
   // ---------- joueurs
   addPlayer(conn, name, cls) {
     const p = {
       id: uid++, name: cleanName(name), cls: cleanCls(cls), conn, team: 0, kills: 0, deaths: 0, artifacts: 0,
       evolved: false, alive: false, x: 0, y: 0, r: 18, face: 0, hp: 1, maxHp: 1, cd: [0, 0, 0],
-      in: { mx: 0, my: 0, a: null, b: 0 }, respawnAt: 0
+      in: { mx: 0, my: 0, a: null, b: 0 }, respawnAt: 0, token: crypto.randomBytes(12).toString('hex')
     };
     p.team = this.smallerTeam(p);
     this.players.set(p.id, p);
     if (this.host == null) this.host = p.id;
     conn.room = this; conn.p = p;
-    conn.send({ t: 'joined', id: p.id, room: this.id, host: this.host, state: this.state, cfg: this.cfg });
-    if (this.state === 'playing') {
-      this.resetHero(p); this.spawnPlayer(p);
-      conn.send({ t: 'start', map: this.mapInfo(), cfg: this.cfg });
-    }
+    if (this.state === 'playing') { this.resetHero(p); p.lives = this.cfg.lives; this.spawnPlayer(p); }
+    this.welcome(p);
     this.roster();
   }
   removePlayer(p) {
+    clearTimeout(p.dropTimer);
+    if (!this.players.has(p.id)) return;
     this.players.delete(p.id);
     if (this.players.size === 0) { rooms.delete(this.id); return; }
-    if (this.host === p.id) this.host = this.players.keys().next().value;
+    if (this.host === p.id) {
+      const next = [...this.players.values()].find(q => !q.disconnected) || this.players.values().next().value;
+      this.host = next.id;
+    }
     if (this.mobs) this.mobs = this.mobs.filter(m => m.owner !== p.id);
     this.ev({ k: 'left', n: p.name });
     this.roster();
@@ -292,6 +409,7 @@ class Room {
   }
   teamKey(e) {
     if (e.isMob) return e.tk;
+    if (this.cfg.survival) return 'coop';
     return this.cfg.teams ? 't' + e.team : 'p' + e.id;
   }
   form(p) { return p.evolved ? EVO[p.cls] : p.cls; }
@@ -302,8 +420,16 @@ class Room {
     p.poison = p.constrict = p.dash = p.whirl = null;
   }
   spawnPlayer(p) {
-    const others = [...this.players.values()].filter(q => q !== p && q.alive && this.teamKey(q) !== this.teamKey(p));
-    const s = freeSpot(this.map, p.r, (x, y) => others.every(q => Math.hypot(q.x - x, q.y - y) > 450));
+    let s;
+    if (this.cfg.survival) {
+      // en survie : réapparition près d'un coéquipier, loin des monstres
+      const mate = [...this.players.values()].find(q => q !== p && q.alive);
+      const mobs = this.mobs || [];
+      s = freeSpot(this.map, p.r, (x, y) => mobs.every(m => Math.hypot(m.x - x, m.y - y) > 380) && (!mate || Math.hypot(mate.x - x, mate.y - y) < 500));
+    } else {
+      const others = [...this.players.values()].filter(q => q !== p && q.alive && this.teamKey(q) !== this.teamKey(p));
+      s = freeSpot(this.map, p.r, (x, y) => others.every(q => Math.hypot(q.x - x, q.y - y) > 450));
+    }
     p.x = s.x; p.y = s.y; p.alive = true; p.hp = p.maxHp; p.invulnUntil = this.t + 1.5;
     p.stunUntil = p.rootUntil = p.invisUntil = p.shieldUntil = 0;
     p.poison = p.constrict = p.dash = p.whirl = null; p.lastHit = null;
@@ -323,7 +449,9 @@ class Room {
 
   // ---------- partie
   start() {
-    this.state = 'playing'; this.map = buildMap(this.cfg.map); this.t = 0; this.endAt = TEST_DURATION || this.cfg.duration * 60;
+    this.state = 'playing'; this.map = buildMap(this.cfg.map); this.t = 0;
+    this.endAt = this.cfg.survival ? Infinity : (TEST_DURATION || this.cfg.duration * 60);
+    this.wave = TEST_WAVE; this.waveState = 'break'; this.nextWaveAt = 4; this.waveQueue = 0; this.waveSpawnAt = 0; this.bossDone = true;
     this.mobs = []; this.proj = []; this.arts = []; this.events = []; this.teamScore = [0, 0];
     this.artTimer = 0; this.mobRespawn = []; this.tick = 0;
     const list = [...this.players.values()];
@@ -331,10 +459,10 @@ class Room {
     if (this.cfg.teams && list.length > 1 && (list.every(p => p.team === 0) || list.every(p => p.team === 1))) {
       list.sort(() => Math.random() - 0.5).forEach((p, i) => { p.team = i % 2; });
     }
-    list.forEach(p => { if (!this.cfg.teams) p.team = 0; p.kills = 0; p.deaths = 0; this.resetHero(p); });
+    list.forEach(p => { if (!this.cfg.teams) p.team = 0; p.kills = 0; p.deaths = 0; p.lives = this.cfg.lives; this.resetHero(p); });
     for (const p of list) { this.spawnPlayer(p); this.updEvo(p); }
-    for (let i = 0; i < 9; i++) this.spawnMob();
-    for (let i = 0; i < 7; i++) this.spawnArt();
+    if (!this.cfg.survival) for (let i = 0; i < 9; i++) this.spawnMob();
+    for (let i = 0; i < 3; i++) this.spawnArt();
     this.broadcast({ t: 'start', map: this.mapInfo(), cfg: this.cfg });
     this.roster();
   }
@@ -342,7 +470,8 @@ class Room {
     this.state = 'ended';
     const ranking = [...this.players.values()].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
       .map(p => ({ id: p.id, name: p.name, cls: p.cls, team: p.team, kills: p.kills, deaths: p.deaths }));
-    this.broadcast({ t: 'end', ranking, ts: this.teamScore, teams: this.cfg.teams });
+    this.lastEnd = { t: 'end', ranking, ts: this.teamScore, teams: this.cfg.teams, survival: this.cfg.survival, wave: this.wave };
+    this.broadcast(this.lastEnd);
     this.roster();
   }
   backToLobby() {
@@ -350,7 +479,7 @@ class Room {
     for (const p of this.players.values()) { p.kills = 0; p.deaths = 0; p.alive = false; }
     this.roster();
   }
-  spawnMob(owner, x, y) {
+  spawnMob(owner, x, y, wave) {
     let type, d;
     if (owner) { type = 'squelette'; }
     else { const l = MAP_MOBS[this.map.key]; type = l[Math.random() * l.length | 0]; }
@@ -359,16 +488,51 @@ class Room {
     if (owner) pos = { x, y };
     else {
       const pl = [...this.players.values()].filter(p => p.alive);
-      pos = freeSpot(this.map, d.r, (px, py) => pl.every(p => Math.hypot(p.x - px, p.y - py) > 500));
+      // les vagues arrivent par les bords de la carte
+      const edge = wave ? (px, py) => (px < 260 || py < 260 || px > this.map.w - 260 || py > this.map.h - 260) : () => true;
+      pos = freeSpot(this.map, d.r * (wave && wave.boss ? 1.6 : 1), (px, py) => edge(px, py) && pl.every(p => Math.hypot(p.x - px, p.y - py) > 500));
     }
     const m = {
       id: uid++, isMob: true, type, x: pos.x, y: pos.y, r: d.r, hp: d.hp, maxHp: d.hp, face: rnd(-3, 3), cd: 0,
       owner: owner ? owner.id : null, tk: owner ? this.teamKey(owner) : 'mob', expire: owner ? this.t + 12 : 0,
       home: { x: pos.x, y: pos.y }, think: 0, tgt: null, wp: null, wpT: 0, stunUntil: 0, rootUntil: 0, poison: null, constrict: null
     };
+    if (wave) {
+      const n = wave.n, hpM = 1 + 0.15 * (n - 1), dmgM = 1 + 0.08 * (n - 1);
+      m.hunt = true; m.waveMob = true; m.dmgMul = dmgM * (wave.boss ? 1.8 : 1);
+      m.hp = m.maxHp = Math.round(d.hp * hpM * (wave.boss ? 7 : 1));
+      if (wave.boss) { m.boss = true; m.r = Math.round(d.r * 1.6); }
+    }
     collide(m, this.map);
     this.mobs.push(m);
     return m;
+  }
+  // ---------- mode survie
+  waveStep(t) {
+    const stillIn = [...this.players.values()].filter(p => p.alive || p.lives > 0);
+    if (!stillIn.length) { this.endSoon = true; return; }
+    const waveMobs = this.mobs.filter(m => m.waveMob && !m.dead).length;
+    if (this.waveState === 'break') {
+      if (t >= this.nextWaveAt) {
+        this.wave++; this.waveState = 'fight';
+        const mult = 1 + 0.4 * (this.players.size - 1);
+        this.waveQueue = Math.round((3 + this.wave * 2) * mult);
+        this.bossDone = this.wave % 5 !== 0;
+        this.ev({ k: 'wave', st: 'start', n: this.wave, boss: this.wave % 5 === 0 ? 1 : 0 });
+      }
+      return;
+    }
+    if (this.waveQueue > 0 && t >= this.waveSpawnAt && waveMobs < 24) {
+      this.waveSpawnAt = t + 0.6; this.waveQueue--;
+      this.spawnMob(null, 0, 0, { n: this.wave });
+    }
+    if (!this.bossDone && this.waveQueue <= 0) { this.bossDone = true; this.spawnMob(null, 0, 0, { n: this.wave, boss: true }); this.ev({ k: 'boss' }); }
+    if (this.waveQueue <= 0 && this.bossDone && waveMobs === 0) {
+      this.waveState = 'break'; this.nextWaveAt = t + 6;
+      // récompense : soin de 25 % pour les survivants
+      for (const p of this.players.values()) if (p.alive) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.25);
+      this.ev({ k: 'wave', st: 'clear', n: this.wave });
+    }
   }
   spawnArt() { const s = freeSpot(this.map, 22); this.arts.push({ id: pid++, x: s.x, y: s.y, at: this.t }); }
   dropArt(x, y) { this.arts.push({ id: pid++, x, y, at: this.t }); }
@@ -396,13 +560,20 @@ class Room {
     else { const tg = this.nearestEnemy(p, range); a = tg ? Math.atan2(tg.y - p.y, tg.x - p.x) : p.face; }
     p.face = a; return a;
   }
+  hard(e) { return !e.isMob && e.shieldUntil > this.t; } // sous carapace : insensible au contrôle
+  stun(e, d) { if (!this.hard(e)) e.stunUntil = Math.max(e.stunUntil || 0, this.t + d); }
+  slow(e) { for (const h of this.map.haz) if (h.t === 'sand' && Math.hypot(e.x - h.x, e.y - h.y) < h.r) return 0.45; return 1; }
   mult(p) { let m = p.evolved ? EVO_DMG : 1; if (p.invisUntil > this.t) m *= 1.5; return m; }
 
-  damage(tg, amt, src) {
+  damage(tg, amt, src, reflected) {
     if (tg.isMob ? tg.dead : !tg.alive) return;
     if (!tg.isMob) {
       if (this.t < tg.invulnUntil) return;
-      if (this.t < tg.shieldUntil) amt *= 0.5;
+      if (this.t < tg.shieldUntil) {
+        // carapace : -70 % de dégâts et 30 % renvoyés à l'attaquant
+        if (src && !reflected && src !== tg && (src.isMob ? !src.dead : src.alive) && src.hp != null) this.damage(src, amt * 0.3, tg, true);
+        amt *= 0.3;
+      }
     }
     amt = Math.max(1, Math.round(amt));
     tg.hp -= amt;
@@ -413,11 +584,18 @@ class Room {
   kill(tg, killer) {
     if (tg.isMob) {
       tg.dead = true; tg.hp = 0;
-      if (tg.owner == null) { if (Math.random() < 0.7) this.dropArt(tg.x, tg.y); this.mobRespawn.push(this.t + 10); }
+      if (tg.owner == null) {
+        if (Math.random() < (tg.boss ? 1 : this.cfg.survival ? 0.25 : 0.35)) this.dropArt(tg.x, tg.y);
+        if (tg.boss) { this.dropArt(tg.x + 25, tg.y); this.dropArt(tg.x - 25, tg.y); }
+        if (!tg.waveMob) this.mobRespawn.push(this.t + 10);
+        // en survie, chaque monstre abattu compte
+        if (this.cfg.survival && killer && !killer.isMob && this.players.has(killer.id)) { killer.kills++; this.rosterDirty = true; }
+      }
       this.ev({ k: 'die', x: r0(tg.x), y: r0(tg.y), m: tg.type });
       return;
     }
     tg.alive = false; tg.hp = 0; tg.deaths++; tg.respawnAt = this.t + 3;
+    if (this.cfg.survival) { tg.lives = Math.max(0, (tg.lives || 0) - 1); tg.respawnAt = tg.lives > 0 ? this.t + 4 : Infinity; }
     tg.poison = tg.constrict = tg.dash = tg.whirl = null;
     if (tg.artifacts > 0) { tg.artifacts--; this.dropArt(tg.x, tg.y); }
     this.updEvo(tg);
@@ -429,7 +607,7 @@ class Room {
     this.ev({ k: 'kill', a: kn, ak, b: tg.name, bk: tg.id, x: r0(tg.x), y: r0(tg.y) });
     this.rosterDirty = true;
     const goal = this.cfg.score;
-    if (goal > 0) {
+    if (goal > 0 && !this.cfg.survival) {
       if (this.cfg.teams ? Math.max(...this.teamScore) >= goal : [...this.players.values()].some(p => p.kills >= goal)) this.endSoon = true;
     }
   }
@@ -445,7 +623,7 @@ class Room {
   explode(x, y, rad, dmg, src, tk, stun) {
     for (const e of this.targets()) {
       if (this.teamKey(e) === tk) continue;
-      if (Math.hypot(e.x - x, e.y - y) <= rad + e.r) { this.damage(e, dmg, src); if (stun) e.stunUntil = Math.max(e.stunUntil || 0, this.t + stun); }
+      if (Math.hypot(e.x - x, e.y - y) <= rad + e.r) { this.damage(e, dmg, src); if (stun) this.stun(e, stun); }
     }
   }
   melee(p, a, range, arc, dmg, onHit) {
@@ -519,13 +697,13 @@ class Room {
       case 'golem0':
         this.explode(p.x, p.y, 170, 26 * m, p, this.teamKey(p), 1.2);
         this.ev({ k: 'quake', x: r0(p.x), y: r0(p.y), r: 170 }); p.cd[1] = t + 7; break;
-      case 'golem1': p.shieldUntil = t + 4; p.cd[2] = t + 11; break;
+      case 'golem1': p.shieldUntil = t + 6; p.stunUntil = p.rootUntil = 0; p.constrict = null; this.ev({ k: 'shield', i: p.id, x: r0(p.x), y: r0(p.y) }); p.cd[2] = t + 10; break;
       case 'ninja0': {
         const a = this.aim(p, 560);
         for (let k = -1; k <= 1; k++) this.shoot(p, a + k * 0.18, { kind: 'shuri', spd: 760, dmg: 14 * m, r: 7, life: 0.8 });
         p.cd[1] = t + 3; break;
       }
-      case 'ninja1': p.invisUntil = t + 3; this.ev({ k: 'smoke', x: r0(p.x), y: r0(p.y) }); p.cd[2] = t + 8; break;
+      case 'ninja1': p.invisUntil = t + 5; this.ev({ k: 'smoke', x: r0(p.x), y: r0(p.y) }); p.cd[2] = t + 10; break;
       case 'serpent0': {
         const a = this.aim(p, 180);
         const dps = 6 * m;
@@ -535,7 +713,7 @@ class Room {
       case 'serpent1': {
         const tg = this.nearestEnemy(p, 150);
         if (!tg) { p.cd[2] = t + 0.5; break; }
-        tg.rootUntil = t + 2; tg.constrict = { until: t + 2, next: t + 0.5, dmg: 8 * m, src: p };
+        if (!this.hard(tg)) tg.rootUntil = t + 2; tg.constrict = { until: t + 2, next: t + 0.5, dmg: 8 * m, src: p };
         p.face = Math.atan2(tg.y - p.y, tg.x - p.x);
         this.ev({ k: 'grab', x1: r0(p.x), y1: r0(p.y), x2: r0(tg.x), y2: r0(tg.y), i: tg.id });
         p.cd[2] = t + 9; break;
@@ -563,12 +741,12 @@ class Room {
             p.dash.hit.add(e.id); this.damage(e, p.dash.dmg, p);
             const sp = Math.hypot(p.dash.vx, p.dash.vy);
             e.x += p.dash.vx / sp * 70; e.y += p.dash.vy / sp * 70; collide(e, this.map);
-            e.stunUntil = Math.max(e.stunUntil || 0, t + 0.5);
+            this.stun(e, 0.5);
           }
         }
         if (t >= p.dash.until || stunned) p.dash = null;
       } else if (!rooted && mag > 0.05) {
-        const f = this.form(p), sp = CLS[p.cls].spd * (f === 'golem' ? 0.88 : 1);
+        const f = this.form(p), sp = CLS[p.cls].spd * (f === 'golem' ? 0.88 : 1) * this.slow(p);
         const k = Math.min(1, mag) / mag;
         p.x += mx * k * sp * DT; p.y += my * k * sp * DT;
       }
@@ -594,10 +772,10 @@ class Room {
       const d = MOBS[m.type];
       if (t >= m.think) {
         m.think = t + 0.3;
-        m.tgt = this.nearestEnemy(m, m.owner != null ? 520 : 320);
+        m.tgt = this.nearestEnemy(m, m.hunt ? 6000 : m.owner != null ? 520 : 320);
       }
       let tg = m.tgt;
-      if (tg && ((tg.isMob ? tg.dead : !tg.alive) || this.hidden(tg) || Math.hypot(tg.x - m.x, tg.y - m.y) > 650)) { tg = m.tgt = null; }
+      if (tg && ((tg.isMob ? tg.dead : !tg.alive) || this.hidden(tg) || (!m.hunt && Math.hypot(tg.x - m.x, tg.y - m.y) > 650))) { tg = m.tgt = null; }
       let mx = 0, my = 0, spd = d.spd;
       if (tg) {
         const dx = tg.x - m.x, dy = tg.y - m.y, dist = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
@@ -623,8 +801,24 @@ class Room {
         const dx = m.wp.x - m.x, dy = m.wp.y - m.y, dist = Math.hypot(dx, dy);
         if (dist > 5) { mx = dx / dist; my = dy / dist; spd *= 0.45; m.face = Math.atan2(dy, dx); }
       }
-      if (t >= m.rootUntil) { m.x += mx * spd * DT; m.y += my * spd * DT; }
+      if (m.detourUntil > t) { const a = Math.atan2(my, mx) + m.detourDir; mx = Math.cos(a); my = Math.sin(a); }
+      const ox = m.x, oy = m.y;
+      if (t >= m.rootUntil) { const sl = this.slow(m); m.x += mx * spd * sl * DT; m.y += my * spd * sl * DT; }
       collide(m, this.map);
+      // coincé contre un obstacle : on le contourne
+      if (m.hunt && (mx || my) && t >= m.rootUntil) {
+        const moved = Math.hypot(m.x - ox, m.y - oy);
+        m.stuck = moved < spd * DT * 0.3 ? (m.stuck || 0) + DT : 0;
+        if (m.stuck > 0.4) { m.stuck = 0; m.detourUntil = t + 0.7; m.detourDir = Math.random() < 0.5 ? 1.3 : -1.3; }
+      }
+    }
+    // --- geysers
+    if (this.map.haz.length && t >= (this.hazNext || 0)) {
+      this.hazNext = t + 0.4;
+      for (const h of this.map.haz) {
+        if (h.t !== 'geyser' || ((t + h.ph) % 5) < 3.8) continue;
+        for (const e of this.targets()) if (Math.hypot(e.x - h.x, e.y - h.y) < h.r + e.r * 0.5) this.damage(e, 7, GEYSER);
+      }
     }
     // --- séparation des corps
     const bodies = this.targets();
@@ -663,13 +857,17 @@ class Room {
       if (!p.alive) continue;
       for (const a of this.arts) {
         if (!a.taken && t - a.at > 0.4 && Math.hypot(a.x - p.x, a.y - p.y) < p.r + 18) {
-          a.taken = true; p.artifacts++; this.ev({ k: 'pick', i: p.id, x: r0(a.x), y: r0(a.y) }); this.updEvo(p);
+          a.taken = true; p.artifacts++;
+          const heal = Math.min(p.maxHp - p.hp, Math.round(p.maxHp * 0.05));
+          p.hp += heal;
+          this.ev({ k: 'pick', i: p.id, x: r0(a.x), y: r0(a.y), h: heal }); this.updEvo(p);
         }
       }
     }
     this.arts = this.arts.filter(a => !a.taken);
     this.artTimer -= DT;
-    if (this.artTimer <= 0) { this.artTimer = 3; if (this.arts.length < 6 + this.players.size) this.spawnArt(); }
+    if (this.artTimer <= 0) { this.artTimer = 8; if (this.arts.length < 3 + Math.floor(this.players.size / 2)) this.spawnArt(); }
+    if (this.cfg.survival) this.waveStep(t);
     // --- réapparition des PNJ
     if (this.mobRespawn.length && t >= this.mobRespawn[0]) { this.mobRespawn.shift(); this.spawnMob(); }
     // --- fin
@@ -685,14 +883,15 @@ class Room {
       if (p.alive) f |= 1; if (p.evolved) f |= 2; if (p.invisUntil > t) f |= 4; if (p.shieldUntil > t) f |= 8;
       if (p.stunUntil > t) f |= 16; if (p.rootUntil > t) f |= 32; if (p.poison) f |= 64; if (p.invulnUntil > t) f |= 128;
       if (p.whirl) f |= 256; if (p.dash) f |= 512;
-      pl.push([p.id, r0(p.x), r0(p.y), r2(p.face), Math.max(0, r0(p.hp)), p.maxHp, f, p.artifacts, r2(p.cd[0]), r2(p.cd[1]), r2(p.cd[2]), r2(p.respawnAt)]);
+      pl.push([p.id, r0(p.x), r0(p.y), r2(p.face), Math.max(0, r0(p.hp)), p.maxHp, f, p.artifacts, r2(p.cd[0]), r2(p.cd[1]), r2(p.cd[2]), isFinite(p.respawnAt) ? r2(p.respawnAt) : -1, this.cfg.survival ? p.lives : -1]);
     }
     const mb = this.mobs.map(m => {
-      let f = 0; if (m.stunUntil > t) f |= 16; if (m.rootUntil > t) f |= 32; if (m.poison) f |= 64;
+      let f = 0; if (m.stunUntil > t) f |= 16; if (m.rootUntil > t) f |= 32; if (m.poison) f |= 64; if (m.boss) f |= 128;
       return [m.id, m.type, r0(m.x), r0(m.y), r2(m.face), Math.max(0, r0(m.hp)), m.maxHp, m.owner == null ? -1 : m.owner, f];
     });
     const msg = {
-      t: 's', n: r2(t), tl: Math.max(0, Math.ceil(this.endAt - t)), ts: this.teamScore,
+      t: 's', n: r2(t), tl: isFinite(this.endAt) ? Math.max(0, Math.ceil(this.endAt - t)) : r0(t), ts: this.teamScore,
+      sv: this.cfg.survival ? [this.wave, this.waveState === 'fight' ? 1 : 0, this.mobs.filter(m => m.waveMob).length + this.waveQueue + (this.bossDone ? 0 : 1), Math.max(0, Math.ceil(this.nextWaveAt - t))] : 0,
       p: pl, m: mb, pr: this.proj.map(p => [p.id, p.kind, r0(p.x), r0(p.y)]), a: this.arts.map(a => [a.id, r0(a.x), r0(a.y)]),
       e: this.events
     };
@@ -721,6 +920,19 @@ function onConnect(c) {
         r.addPlayer(c, m.name, m.cls);
         break;
       }
+      case 'resume': {
+        if (room) return;
+        const r = rooms.get(String(m.room || '').toUpperCase());
+        const q = r && [...r.players.values()].find(x => x.token === m.token);
+        if (!q) return c.send({ t: 'resumeFail' });
+        r.resume(q, c);
+        break;
+      }
+      case 'leave':
+        if (!room) return;
+        room.removePlayer(p); c.room = null; c.p = null;
+        c.send({ t: 'left' });
+        break;
       case 'cls':
         if (!room || room.state === 'playing') return;
         p.cls = cleanCls(m.cls); room.roster(); break;
@@ -749,7 +961,7 @@ function onConnect(c) {
         break;
     }
   };
-  c.onclose = () => { conns.delete(c); if (c.room && c.p) c.room.removePlayer(c.p); c.room = null; };
+  c.onclose = () => { conns.delete(c); if (c.room && c.p && c.p.conn === c) c.room.disconnect(c.p); c.room = null; };
 }
 
 // ---------------------------------------------------------- Boucle de jeu
