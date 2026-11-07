@@ -26,6 +26,18 @@ const server = http.createServer((req, res) => {
   let u = '/';
   try { u = decodeURIComponent(req.url.split('?')[0]); } catch (e) {}
   if (u === '/healthz') { res.writeHead(200); return res.end('ok'); }
+  if (u === '/api/rooms') {
+    const list = [...rooms.values()].map(r => {
+      const host = r.players.get(r.host);
+      return {
+        code: r.id, host: host ? host.name : '?', players: r.players.size, max: MAX_PLAYERS,
+        state: r.state, map: r.cfg.map, teams: r.cfg.teams, duration: r.cfg.duration,
+        left: r.state === 'playing' ? Math.max(0, Math.ceil(r.endAt - r.t)) : null
+      };
+    }).sort((a, b) => (a.state === 'lobby' ? 0 : 1) - (b.state === 'lobby' ? 0 : 1) || b.players - a.players);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify(list));
+  }
   if (u === '/') u = '/index.html';
   const f = path.normalize(path.join(PUB, u));
   if (!f.startsWith(PUB)) { res.writeHead(403); return res.end(); }
