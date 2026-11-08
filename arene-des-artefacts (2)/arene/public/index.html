@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#16120e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>L'Arène des Artefacts</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#16120e; --panel:#221b15; --panel2:#2c241c; --line:#4a3c2e; --txt:#f3e9da; --mute:#b5a48d;
+  --gold:#f2b84b; --gold2:#ffd98a; --red:#ff5a5a; --blue:#4da3ff; --ok:#6fdc8c;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:Rubik,system-ui,sans-serif;overflow:hidden;
+  -webkit-user-select:none;user-select:none;touch-action:none;overscroll-behavior:none}
+canvas#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+
+/* ---------- écrans de menu */
+.screen{position:fixed;inset:0;overflow-y:auto;touch-action:pan-y;padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 14px max(14px,env(safe-area-inset-left));
+  background:radial-gradient(1200px 600px at 50% -10%,#3a2a1a 0%,transparent 60%),repeating-linear-gradient(45deg,#1a1510 0 14px,#18130f 14px 28px);z-index:5}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+h1{font-family:Bungee,Rubik,sans-serif;font-weight:400;margin:4px 0 0;text-align:center;font-size:clamp(26px,6vw,46px);line-height:1;
+  color:var(--gold);text-shadow:0 3px 0 #7a4a12,0 6px 18px rgba(242,184,75,.35);letter-spacing:1px}
+.tag{text-align:center;color:var(--mute);font-size:14px;margin-top:-4px}
+h2{font-family:Bungee,Rubik,sans-serif;font-weight:400;font-size:16px;margin:0 0 8px;color:var(--gold2);letter-spacing:.5px}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.grid2{grid-template-columns:1fr}}
+input[type=text]{width:100%;font:600 18px Rubik,sans-serif;padding:12px 14px;border-radius:10px;border:2px solid var(--line);background:#120e0b;color:var(--txt);outline:none;user-select:text;-webkit-user-select:text}
+input[type=text]:focus{border-color:var(--gold)}
+button{font-family:Rubik,sans-serif;cursor:pointer}
+.btn{border:0;border-radius:12px;padding:14px 18px;font-weight:800;font-size:17px;color:#2a1700;background:linear-gradient(#ffd27a,#e9a23a);
+  box-shadow:0 4px 0 #8a5413;text-transform:uppercase;letter-spacing:.5px;transition:transform .06s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8a5413}
+.btn:disabled{filter:grayscale(1) brightness(.6)}
+.btn.ghost{background:var(--panel2);color:var(--txt);box-shadow:0 4px 0 #120e0b;border:2px solid var(--line)}
+.btn.wide{width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:2px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:999px;padding:8px 13px;font-weight:600;font-size:14px}
+.chip.on{border-color:var(--gold);background:#4a3618;color:var(--gold2)}
+.chip:disabled{opacity:.75}
+.lbl{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:1px;margin:8px 0 5px;font-weight:600}
+
+/* ---------- cartes de classe */
+.classes{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+@media (max-width:520px){.classes{gap:5px}.cls .sk{display:none}.cls .nm{font-size:12px}.cls .ev{font-size:10px}.cls{padding:7px 3px}.cls .ico{font-size:24px}}
+.cls{border:2px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px 8px;text-align:center;color:var(--txt)}
+.cls.on{border-color:var(--gold);background:linear-gradient(#4a3618,#2c241c);box-shadow:0 0 0 2px rgba(242,184,75,.25)}
+.cls .ico{font-size:30px;line-height:1.1}
+.cls .nm{font-weight:800;font-size:15px;margin-top:2px}
+.cls .ev{font-size:12px;color:var(--gold2);margin:2px 0 4px}
+.cls .sk{font-size:10.5px;color:var(--mute);line-height:1.35}
+.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.map{border:2px solid var(--line);border-radius:12px;padding:10px 6px;font-weight:700;font-size:13px;color:#fff;text-shadow:0 1px 2px #000;min-height:64px}
+.map .ico{font-size:24px;display:block}
+.map.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(242,184,75,.35)}
+.map:disabled{opacity:.8}
+.m-colisee{background:linear-gradient(135deg,#c9995c,#8a6236)}
+.m-jungle{background:linear-gradient(135deg,#2f6b33,#163d1c)}
+.m-urbain{background:linear-gradient(135deg,#5b606c,#2d3038)}
+.m-desert{background:linear-gradient(135deg,#e2b36a,#a8692f)}
+.m-espace{background:linear-gradient(135deg,#3b2d6b,#0d0b24)}
+.m-glace{background:linear-gradient(135deg,#bfe3f2,#5d8fb0)}
+.m-dinos{background:linear-gradient(135deg,#7da33f,#4a2f17)}
+.m-apo{background:linear-gradient(135deg,#8a8264,#3a3328)}
+.room.m-dinos{border-left-color:#7da33f}.room.m-apo{border-left-color:#9c8a5a}
+.room.m-desert{border-left-color:#d49a4a}.room.m-espace{border-left-color:#6a55c9}.room.m-glace{border-left-color:#8fd0ec}
+.pl.dc{opacity:.5}
+
+/* ---------- salon */
+.code{font-family:Bungee,sans-serif;font-size:30px;color:var(--gold);letter-spacing:4px}
+.plist{display:flex;flex-direction:column;gap:6px}
+.pl{display:flex;align-items:center;gap:8px;background:var(--panel2);border-radius:10px;padding:8px 10px;border-left:5px solid transparent}
+.pl.t0{border-left-color:var(--red)}.pl.t1{border-left-color:var(--blue)}
+.pl .ico{font-size:20px}.pl .n{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .b{font-size:11px;background:#4a3618;color:var(--gold2);padding:2px 7px;border-radius:99px;font-weight:700}
+.wait{color:var(--mute);text-align:center;padding:10px;font-size:15px}
+
+/* ---------- fin */
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:1px;text-align:left;padding:6px}
+td{padding:8px 6px;border-top:1px solid var(--line)}
+td.num,th.num{text-align:center}
+.win{font-family:Bungee,sans-serif;font-size:clamp(20px,4.5vw,32px);text-align:center;color:var(--gold)}
+
+/* ---------- contrôles tactiles */
+#touch{position:fixed;inset:0;z-index:3;pointer-events:none}
+#joyZone{position:absolute;left:0;top:0;bottom:0;width:50%;pointer-events:auto;touch-action:none}
+#joy{position:absolute;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);pointer-events:none;opacity:.55}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(255,230,180,.55);border:2px solid rgba(255,255,255,.7)}
+.tb{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;border:3px solid rgba(255,255,255,.55);color:#fff;font-weight:800;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-shadow:0 1px 3px #000;overflow:hidden;padding:0;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.28),rgba(0,0,0,.35));}
+.tb.down{transform:scale(.92);border-color:#fff}
+.tb .e{font-size:26px;line-height:1}
+.tb .s{font-size:10px;line-height:1.1;max-width:90%;text-align:center;margin-top:2px}
+.tb .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.65) calc(var(--p,0)*1turn),transparent 0);pointer-events:none}
+.tb .cn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800}
+#bAtk{width:92px;height:92px;right:max(28px,env(safe-area-inset-right));bottom:30px;background:radial-gradient(circle at 35% 30%,#ff9b6b,#b5321e)}
+#bS1{width:66px;height:66px;right:calc(max(28px,env(safe-area-inset-right)) + 104px);bottom:24px;background:radial-gradient(circle at 35% 30%,#7fc8ff,#1e5da8)}
+#bS2{width:66px;height:66px;right:calc(max(28px,env(safe-area-inset-right)) + 12px);bottom:134px;background:radial-gradient(circle at 35% 30%,#d4a6ff,#6a2fb0)}
+#bS3{width:60px;height:60px;right:calc(max(28px,env(safe-area-inset-right)) + 96px);bottom:108px;background:radial-gradient(circle at 35% 30%,#ffe08a,#c9881a)}
+#bS4{width:58px;height:58px;right:calc(max(28px,env(safe-area-inset-right)) + 184px);bottom:28px;background:radial-gradient(circle at 35% 30%,#bff3ff,#1a8ac9);box-shadow:0 0 14px rgba(127,232,255,.7)}
+#bItem{width:54px;height:54px;right:calc(max(28px,env(safe-area-inset-right)) + 176px);bottom:104px;background:radial-gradient(circle at 35% 30%,#a8e6a0,#2f7a3a)}
+#bItem .e{font-size:22px}
+#bItem.bonus{background:radial-gradient(circle at 35% 30%,#ffe9a0,#c98a1a);border-color:#fff;box-shadow:0 0 14px rgba(255,215,110,.8)}
+#bItem.empty{filter:grayscale(.7) brightness(.7)}
+#bItem .cnt{position:absolute;top:2px;right:6px;font-size:12px;font-weight:800;color:#fff;z-index:2}
+#evoPick{position:fixed;z-index:6;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);background:rgba(20,14,8,.88);border:2px solid #f2b84b;border-radius:14px;padding:8px 10px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.6)}
+#evoPick .evt{font-family:Bungee,Rubik,sans-serif;color:#ffd76a;font-size:15px;margin-bottom:6px}
+#evoPick .evc{display:flex;gap:8px}
+#evoPick button{border:2px solid #6a5232;background:linear-gradient(#3a2a18,#22180e);color:#fff;border-radius:12px;padding:8px 10px;min-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;touch-action:manipulation}
+#evoPick button:active{transform:scale(.96);border-color:#ffd76a}
+#evoPick .ei{font-size:28px;line-height:1}
+#evoPick b{font-size:14px;color:#ffd76a}
+#evoPick small{font-size:11px;color:#d8c8b0;line-height:1.35}
+
+#rotate{position:fixed;inset:0;z-index:20;background:var(--bg);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:30px;font-size:20px;font-weight:700}
+#rotate .ph{font-size:64px;animation:rot 1.6s ease-in-out infinite}
+@keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (pointer:coarse){ body.playing #rotate{display:flex} }
+
+#toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#000c;color:#fff;padding:10px 16px;border-radius:10px;z-index:30;font-weight:600;font-size:15px;pointer-events:none;transition:opacity .3s;opacity:0;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+#gameBar{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:6px}
+#gameBar button{touch-action:manipulation}
+.gb{background:rgba(20,14,8,.75);color:#fff;border:2px solid rgba(255,255,255,.35);border-radius:10px;padding:8px 11px;font-weight:800;font-size:14px}
+.gb:active{transform:scale(.95)}
+.modal{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .box{background:var(--panel);border:2px solid var(--gold);border-radius:16px;padding:18px 20px;text-align:center;max-width:360px;width:100%;display:flex;flex-direction:column;gap:10px}
+.modal h3{font-family:Bungee,Rubik,sans-serif;font-weight:400;color:var(--gold);margin:0;font-size:22px}
+.setRow{display:flex;justify-content:space-between;align-items:center;border:2px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:12px;padding:12px 14px;font:700 16px Rubik,sans-serif}
+.setRow i{font-style:normal;font-size:13px;padding:3px 10px;border-radius:99px;background:#3a2a2a;color:#ff9a9a}
+.setRow.on i{background:#1f4a2a;color:var(--ok)}
+.setVolRow{display:flex;align-items:center;gap:10px;font-weight:700;padding:4px 2px}
+.setVolRow input{flex:1;accent-color:var(--gold);touch-action:pan-x}
+.modal p{margin:0;color:var(--mute);font-size:14px}
+#gameInvite{background:rgba(20,14,8,.75);color:#ffd98a;
+  border:2px solid #f2b84b;border-radius:10px;padding:8px 14px;font-weight:800;font-size:14px;touch-action:manipulation}
+#gameInvite b{font-family:Bungee,Rubik,sans-serif;font-weight:400;letter-spacing:1px;margin-left:4px}
+.small{font-size:13px;color:var(--mute)}
+.rooms{display:flex;flex-direction:column;gap:8px}
+.room{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:12px;padding:10px 12px;border-left:6px solid var(--line)}
+.room.m-colisee{border-left-color:#c9995c}.room.m-jungle{border-left-color:#3f8a3a}.room.m-urbain{border-left-color:#7a808e}
+.room .ri{font-size:26px}
+.room .rt{flex:1;min-width:0}
+.room .rh{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .rs{font-size:12px;color:var(--mute);margin-top:2px}
+.room .st{font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.st.lobby{background:#1f4a2a;color:var(--ok)}.st.playing{background:#4a3618;color:var(--gold2)}.st.ended{background:#333;color:#aaa}
+.room .btn{padding:10px 14px;font-size:14px}
+.hint{font-size:12px;color:var(--mute);text-align:center}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<!-- ============ ACCUEIL ============ -->
+<div class="screen" id="sHome">
+  <div class="wrap">
+    <h1>L'Arène des Artefacts</h1>
+    <div class="tag">Collecte 10 artefacts, évolue, domine l'arène.</div>
+    <div class="card">
+      <div class="lbl" style="margin-top:0">Ton pseudo</div>
+      <input type="text" id="name" maxlength="14" placeholder="Ex. : Maximus" autocomplete="off">
+      <div class="lbl">Ta classe</div>
+      <div class="classes" id="homeClasses"></div>
+    </div>
+    <button class="btn wide" id="btnJoin">Rejoindre la partie</button>
+    <button class="btn wide" id="btnCreate">Créer une partie</button>
+    <button class="btn ghost wide btnSet">⚙️ Son, musique et vibrations</button>
+    <div class="card">
+      <h2>Rejoindre une partie</h2>
+      <div class="row" style="flex-wrap:nowrap">
+        <input type="text" id="codeIn" maxlength="6" placeholder="Code (ex. AB3K7)" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px">
+        <button class="btn" id="btnCode" style="white-space:nowrap">Rejoindre</button>
+      </div>
+      <div class="lbl">Parties en cours <span id="roomsInfo"></span></div>
+      <div class="rooms" id="roomList"><div class="wait">Chargement…</div></div>
+    </div>
+    <div class="hint" id="pcHint">Sur ordinateur : ZQSD/WASD pour bouger, souris pour viser, clic = attaque, E/R = compétences, C = évolution, V = ultime, F = objet, Échap = pause/quitter.</div>
+  </div>
+</div>
+
+<!-- ============ SALON ============ -->
+<div class="screen hidden" id="sLobby">
+  <div class="wrap">
+    <div class="card row" style="justify-content:space-between">
+      <div><div class="lbl" style="margin:0">Code de la partie</div><div class="code" id="lCode">-----</div></div>
+      <button class="btn" id="btnShare">📤 Inviter des amis</button>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Réglages <span class="small" id="cfgWho"></span></h2>
+        <div class="lbl" style="margin-top:0">Carte</div>
+        <div class="maps" id="cfgMap"></div>
+        <div class="lbl">Mode de jeu</div>
+        <div class="chips" id="cfgMode"></div>
+        <div id="cfgPvp">
+          <div class="lbl">Durée</div>
+          <div class="chips" id="cfgDur"></div>
+          <div class="lbl">Score à atteindre (éliminations)</div>
+          <div class="chips" id="cfgScore"></div>
+        </div>
+        <div id="cfgSurv" class="hidden">
+          <div class="lbl">Vies par joueur</div>
+          <div class="chips" id="cfgLives"></div>
+          <div class="small" style="margin-top:8px">Tous ensemble contre des vagues d'ennemis de plus en plus fortes, avec un boss toutes les 5 vagues. Tenez le plus longtemps possible !</div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Joueurs <span class="small" id="pCount"></span></h2>
+        <div class="plist" id="pList"></div>
+        <div class="row" id="teamPick" style="margin-top:8px"></div>
+        <div id="botBox" class="hidden">
+          <div class="lbl">🤖 Bots</div>
+          <div class="row"><button class="chip" id="botAdd">＋ Ajouter un bot</button><button class="chip" id="botDel">－ Retirer</button></div>
+          <div class="chips" id="botLvl" style="margin-top:6px"></div>
+        </div>
+        <div class="lbl">Ta classe</div>
+        <div class="classes" id="lobbyClasses"></div>
+      </div>
+    </div>
+    <button class="btn wide" id="btnStart">⚔️ Lancer la partie</button>
+    <div class="wait hidden" id="waitHost">En attente du lancement par l'hôte…</div>
+    <button class="btn ghost wide btnLeave">Quitter le salon</button>
+  </div>
+</div>
+
+<!-- ============ FIN ============ -->
+<div class="screen hidden" id="sEnd">
+  <div class="wrap">
+    <h1 style="font-size:clamp(22px,5vw,36px)">Fin de la partie</h1>
+    <div class="win" id="endWin"></div>
+    <div class="card"><table><thead><tr><th>#</th><th>Joueur</th><th class="num">⚔️ Élim.</th><th class="num">☠️ Morts</th></tr></thead><tbody id="endRows"></tbody></table></div>
+    <button class="btn wide" id="btnAgain">🔁 Rejouer</button>
+    <div class="wait hidden" id="waitAgain">L'hôte peut relancer une partie…</div>
+    <button class="btn ghost wide btnLeave">Retour à l'accueil</button>
+  </div>
+</div>
+
+<!-- ============ CONNEXION PERDUE ============ -->
+<div class="screen hidden" id="sLost">
+  <div class="wrap" style="padding-top:12vh;text-align:center">
+    <h1 style="font-size:30px">Connexion perdue</h1>
+    <p class="tag" id="lostMsg">Le serveur ne répond plus.</p>
+    <button class="btn" onclick="location.reload()">Réessayer</button>
+    <button class="btn ghost" onclick="location.href='/'">Accueil</button>
+  </div>
+</div>
+
+<!-- ============ CONTRÔLES TACTILES ============ -->
+<div id="touch" class="hidden">
+  <div id="joyZone"></div>
+  <div id="joy" class="hidden"><div id="knob"></div></div>
+  <button class="tb" id="bS1"><span class="e">✦</span><span class="s"></span><i class="cd"></i><b class="cn"></b></button>
+  <button class="tb" id="bS2"><span class="e">✧</span><span class="s"></span><i class="cd"></i><b class="cn"></b></button>
+  <button class="tb hidden" id="bS3"><span class="e">★</span><span class="s"></span><i class="cd"></i><b class="cn"></b></button>
+  <button class="tb hidden" id="bS4"><span class="e">⚡</span><span class="s"></span><i class="cd"></i><b class="cn"></b></button>
+  <button class="tb" id="bAtk"><span class="e">⚔️</span><span class="s">Attaque</span><i class="cd"></i></button>
+  <button class="tb" id="bItem"><span class="e">💣</span><span class="s">Objet</span><b class="cnt"></b><i class="cd"></i><b class="cn"></b></button>
+</div>
+<div id="evoPick" class="hidden"><div class="evt">⭐ Choisis ton évolution</div><div class="evc"><button data-k="0"></button><button data-k="1"></button></div></div>
+<div id="gameBar" class="hidden">
+  <button class="gb hidden" id="btnPause" title="Pause"><b style="letter-spacing:-2px">❚❚</b></button>
+  <button id="gameInvite">📤 <b id="gameCode"></b></button>
+  <button class="gb btnSet" id="btnSet" title="Réglages">⚙️</button>
+  <button class="gb" id="btnQuit" title="Quitter">🚪</button>
+</div>
+<div class="modal hidden" id="quitBox"><div class="box">
+  <h3>Quitter la partie ?</h3>
+  <p>Tu perdras ta place dans cette partie.</p>
+  <button class="btn" id="quitYes">🚪 Oui, quitter</button>
+  <button class="btn ghost" id="quitNo">Continuer à jouer</button>
+</div></div>
+<div class="modal hidden" id="setBox"><div class="box">
+  <h3>⚙️ Réglages</h3>
+  <button class="setRow" data-set="music"><span>🎵 Musique</span><i></i></button>
+  <button class="setRow" data-set="sfx"><span>🔊 Effets sonores</span><i></i></button>
+  <button class="setRow" data-set="vib"><span>📳 Vibrations</span><i></i></button>
+  <label class="setVolRow"><span>🔉 Volume</span><input type="range" id="setVol" min="0" max="100" step="5"></label>
+  <button class="btn" id="setClose">OK</button>
+</div></div>
+<div class="modal hidden" id="pauseBox"><div class="box">
+  <h3>⏸ Pause</h3>
+  <p id="pauseMsg">L'hôte a mis la partie en pause.</p>
+  <button class="btn hidden" id="btnResume">▶ Reprendre</button>
+  <button class="btn ghost" id="pauseQuit">🚪 Quitter la partie</button>
+</div></div>
+<div id="rotate"><div class="ph">📱</div>Tourne ton téléphone<br>en mode paysage</div>
+<div id="toast"></div>
+
+<script src="audio.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
