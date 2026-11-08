@@ -78,6 +78,8 @@ en plein écran, comme une vraie appli.
 | Attaque | Bouton rouge | Clic gauche ou Espace |
 | Compétence 1 | Bouton bleu | E |
 | Compétence 2 | Bouton violet | R |
+| Compétence d'évolution | Bouton jaune | C |
+| Compétence ultime | Bouton bleu | V |
 | Objet | Bouton vert | F |
 | Pause (hôte) | Bouton ⏸ en bas | Échap |
 | Quitter | Bouton 🚪 en bas | Échap (invités) |
@@ -106,20 +108,33 @@ en plein écran, comme une vraie appli.
 - Réapparition après 3 secondes, avec 1,5 seconde d'invulnérabilité.
 - Seules les éliminations de joueurs comptent pour le score.
 
+### Compétences
+- Chaque classe garde toujours ses **2 compétences de base**.
+- L'**évolution** (10 artefacts) en ajoute une **3e** (bouton jaune, touche C).
+- L'**évolution ultime** (50 artefacts) en ajoute une **4e** : **Tempête ultime** = aura de feu + chaîne d'éclairs (bouton bleu brillant, touche V).
+
+### Bots
+L'hôte peut ajouter jusqu'à 5 bots dans le salon (niveau Facile, Normal ou Difficile). Ils jouent toutes
+les classes, ramassent les artefacts, évoluent et utilisent leurs objets. Parfait pour jouer seul en survie.
+
+### Son
+Musique propre à chaque carte, effets sonores et vibrations : tout se règle (ou se coupe) avec le bouton ⚙️,
+à l'accueil ou en jeu. Les sons sont générés par le jeu : aucun fichier audio à héberger.
+
 ### Classes (8) et évolutions (2 au choix chacune)
 À 10 artefacts, deux cartes apparaissent : touche celle que tu veux. Ton choix est gardé
 pour toute la partie (si tu perds puis récupères l'évolution, tu reprends la même forme).
 
 | Classe | Compétences | Évolution 1 | Évolution 2 | Objet |
 |---|---|---|---|---|
-| 🔮 Mage | Boule de feu · Téléportation | **Liche** : nuée d'âmes, squelettes | **Élémentaire de feu** : météore, aura de flammes | ❄️ Totem de glace (ralentit) |
-| 🪓 Barbare | Charge · Tourbillon | **Golem** : séisme, carapace | **Minotaure** : charge dévastatrice, rugissement | 🧱 Barricade destructible |
-| 🥷 Ninja | Shurikens · Invisibilité 5 s | **Serpent géant** : morsure, constriction | **Kitsune** : clones, feux follets | 💣 Mines (invisibles pour l'ennemi) |
-| 🏹 Archer | Flèche perçante · Pluie de flèches | **Phénix** : pluie de feu, renaissance | **Sylphe** : tempête de flèches guidées, rafale | 🪤 Piège à loup |
-| 🛡️ Paladin | Coup de bouclier · Aura de soin | **Archange** : lumière divine, bénédiction | **Chevalier noir** : frappe des ténèbres, aura vampirique | 🧪 Potion de groupe |
-| 🔧 Ingénieur | Tourelle · Grenade | **Mécha** : missiles, blindage | **Essaim** : drones, bombardement | ⚡ Clôture électrique |
-| 🌿 Druide | Ronces · Régénération | **Ent** : racines, écorce | **Loup-garou** : bond, frénésie | 🍄 Champignon de soin |
-| 🦇 Vampire | Morsure · Nuée de chauves-souris | **Seigneur vampire** : drain, nuée sanglante | **Gargouille** : plongeon, pétrification | 🩸 Fiole de sang |
+| 🔮 Mage | Boule de feu · Téléportation | **Liche** : + squelettes | **Élémentaire de feu** : + météore | ❄️ Totem de glace (ralentit) |
+| 🪓 Barbare | Charge · Tourbillon | **Golem** : + carapace | **Minotaure** : + rugissement | 🧱 Barricade destructible |
+| 🥷 Ninja | Shurikens · Invisibilité 5 s | **Serpent géant** : + constriction | **Kitsune** : + clones | 💣 Mines (invisibles pour l'ennemi) |
+| 🏹 Archer | Flèche perçante · Pluie de flèches | **Phénix** : + renaissance | **Sylphe** : + rafale | 🪤 Piège à loup |
+| 🛡️ Paladin | Coup de bouclier · Aura de soin | **Archange** : + bouclier divin | **Chevalier noir** : + aura vampirique | 🚩 Étendard (−30 % de dégâts pour les alliés) |
+| 🔧 Ingénieur | Tourelle · Grenade | **Mécha** : + missiles | **Essaim** : + bombardement | ⚡ Clôture électrique |
+| 🌿 Druide | Ronces · Régénération | **Ent** : + écorce | **Loup-garou** : + frénésie | 🌰 Graine empoisonnée |
+| 🦇 Vampire | Morsure · Nuée de chauves-souris | **Seigneur vampire** : + forme de brume | **Gargouille** : + pétrification | 🩸 Fiole de sang |
 
 ### Objets
 - Chaque classe a **3 charges** de son objet ; une charge revient toutes les 12 secondes.

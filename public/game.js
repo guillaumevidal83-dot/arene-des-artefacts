@@ -13,9 +13,9 @@ const CLASSES = {
   barbare:   { n: 'Barbare',   ico: '🪓', r: 20, evos: ['golem', 'minotaure'], item: 'barr' },
   ninja:     { n: 'Ninja',     ico: '🥷', r: 17, evos: ['serpent', 'kitsune'], item: 'mine' },
   archer:    { n: 'Archer',    ico: '🏹', r: 17, evos: ['phenix', 'sylphe'], item: 'trap' },
-  paladin:   { n: 'Paladin',   ico: '🛡️', r: 19, evos: ['archange', 'noir'], item: 'gpotion' },
+  paladin:   { n: 'Paladin',   ico: '🛡️', r: 19, evos: ['archange', 'noir'], item: 'banner' },
   ingenieur: { n: 'Ingénieur', ico: '🔧', r: 18, evos: ['mecha', 'essaim'], item: 'elec' },
-  druide:    { n: 'Druide',    ico: '🌿', r: 18, evos: ['ent', 'loupgarou'], item: 'shroom' },
+  druide:    { n: 'Druide',    ico: '🌿', r: 18, evos: ['ent', 'loupgarou'], item: 'seed' },
   vampire:   { n: 'Vampire',   ico: '🦇', r: 18, evos: ['seigneur', 'gargouille'], item: 'vial' }
 };
 // toutes les formes : classes de départ + évolutions
@@ -48,6 +48,7 @@ const FORMS = {
 const ITEMS = {
   ice: { n: 'Totem de glace', ico: '❄️' }, barr: { n: 'Barricade', ico: '🧱' }, mine: { n: 'Mine', ico: '💣' }, trap: { n: 'Piège à loup', ico: '🪤' },
   gpotion: { n: 'Potion de groupe', ico: '🧪' }, elec: { n: 'Clôture électrique', ico: '⚡' }, shroom: { n: 'Champignon', ico: '🍄' }, vial: { n: 'Fiole de sang', ico: '🩸' },
+  banner: { n: 'Étendard (−30 % dégâts)', ico: '🚩' }, seed: { n: 'Graine empoisonnée', ico: '🌰' },
   potion: { n: 'Potion', ico: '❤️' }, bomb: { n: 'Bombe', ico: '💥' }, haste: { n: 'Bottes de vitesse', ico: '👟' }, armor: { n: 'Armure', ico: '🛡️' }
 };
 const SK_ICO = { 'Boule de feu': '🔥', 'Téléportation': '✨', "Nuée d'âmes": '👻', 'Squelettes': '💀', 'Charge': '🐂', 'Tourbillon': '🌀',
@@ -57,11 +58,15 @@ const SK_ICO = { 'Boule de feu': '🔥', 'Téléportation': '✨', "Nuée d'âme
   'Coup de bouclier': '🛡️', 'Aura de soin': '💚', 'Lumière divine': '✨', 'Bénédiction': '🙏', 'Frappe des ténèbres': '🗡️', 'Aura vampirique': '🩸',
   'Tourelle': '🔫', 'Grenade': '💣', 'Missiles': '🚀', 'Blindage': '🛡️', 'Drones': '🛸', 'Bombardement': '💥',
   'Ronces': '🌿', 'Régénération': '💚', 'Racines': '🌱', 'Écorce': '🪵', 'Bond': '🐾', 'Frénésie': '😡',
-  'Nuée de chauves-souris': '🦇', 'Aura de feu': '🔥', "Chaîne d'éclairs": '⚡', 'Drain': '🩸', 'Nuée sanglante': '🦇', 'Plongeon': '⬇️', 'Pétrification': '🗿' };
-const ULT_SK = ['Aura de feu', "Chaîne d'éclairs"];
+  'Nuée de chauves-souris': '🦇', 'Bouclier divin': '✨', 'Forme de brume': '🌫️', 'Tempête ultime': '⚡', 'Drain': '🩸', 'Nuée sanglante': '🦇', 'Plongeon': '⬇️', 'Pétrification': '🗿' };
+// compétence ajoutée par l'évolution (3e) et par l'ultime (4e)
+const EVO_ADD = { liche: 'Squelettes', elementaire: 'Météore', golem: 'Carapace', minotaure: 'Rugissement', serpent: 'Constriction', kitsune: 'Clones',
+  phenix: 'Renaissance', sylphe: 'Rafale', archange: 'Bouclier divin', noir: 'Aura vampirique', mecha: 'Missiles', essaim: 'Bombardement',
+  ent: 'Écorce', loupgarou: 'Frénésie', seigneur: 'Forme de brume', gargouille: 'Pétrification' };
+const ULT_ADD = 'Tempête ultime';
 const isUlt = p => !!(p.fl & 32768);
-const skillsOf = p => isUlt(p) ? ULT_SK : FORMS[formOf(p)].sk;
-const shortSk = n => ({ "Chaîne d'éclairs": 'Éclairs', 'Aura de feu': 'Aura de feu', 'Téléportation': 'Téléport', 'Nuée de chauves-souris': 'Chauves-souris', 'Charge dévastatrice': 'Charge', 'Frappe des ténèbres': 'Ténèbres',
+const skillsOf = p => { const f = formOf(p), l = [...FORMS[clsOf(p.id)].sk]; if (EVO_ADD[f]) l.push(EVO_ADD[f]); if (isUlt(p)) l.push(ULT_ADD); return l; };
+const shortSk = n => ({ 'Tempête ultime': 'Ultime', 'Bouclier divin': 'Protection', 'Forme de brume': 'Brume', 'Aura vampirique': 'Aura', 'Téléportation': 'Téléport', 'Nuée de chauves-souris': 'Chauves-souris', 'Charge dévastatrice': 'Charge', 'Frappe des ténèbres': 'Ténèbres',
   'Aura vampirique': 'Aura', 'Aura de flammes': 'Flammes', 'Coup de bouclier': 'Bouclier', 'Pluie de flèches': 'Pluie', 'Flèche perçante': 'Perçante' }[n] || n);
 const MAPS = {
   colisee: { n: 'Colisée romain', ico: '🏛️' }, jungle: { n: 'Jungle amazonienne', ico: '🌴' }, urbain: { n: 'Zone urbaine', ico: '🏙️' },
@@ -93,6 +98,7 @@ let shake = 0, lastHp = null, wasAlive = true;
 
 // ------------------------------------------------------------ Interface
 function show(id) {
+  if (window.SND) SND.music(id === null ? (map ? map.key : 'menu') : 'menu');
   for (const s of ['sHome', 'sLobby', 'sEnd', 'sLost']) $('#' + s).classList.toggle('hidden', s !== id);
   const playing = id === null;
   document.body.classList.toggle('playing', playing);
@@ -215,6 +221,9 @@ function chipRow(el, items, key) {
   }
   chipRow($('#cfgLives'), [[1, '1 vie'], [3, '3 vies'], [5, '5 vies'], [10, '10 vies']], 'lives');
 })();
+$('#botAdd').onclick = () => send({ t: 'bot', op: 'add' });
+$('#botDel').onclick = () => send({ t: 'bot', op: 'del' });
+(() => { const el = $('#botLvl'); for (const [v, l] of [['facile', '😊 Facile'], ['normal', '😐 Normal'], ['difficile', '😈 Difficile']]) { const b = document.createElement('button'); b.className = 'chip'; b.dataset.v = v; b.textContent = l; b.onclick = () => send({ t: 'cfg', cfg: { bots: v } }); el.appendChild(b); } })();
 function renderLobby() {
   if (!cfg) return;
   const isHost = hostId === myId;
@@ -228,13 +237,16 @@ function renderLobby() {
   document.querySelectorAll('#cfgLives .chip').forEach(b => { b.classList.toggle('on', +b.dataset.v === cfg.lives); b.disabled = !isHost; });
   $('#cfgPvp').classList.toggle('hidden', !!cfg.survival); $('#cfgSurv').classList.toggle('hidden', !cfg.survival);
   $('#pCount').textContent = `(${roster.length}/6)`;
-  $('#pList').innerHTML = roster.map(p => `<div class="pl ${cfg.teams ? 't' + p.team : ''} ${p.dc ? 'dc' : ''}"><span class="ico">${CLASSES[p.cls].ico}</span><span class="n">${esc(p.name)}${p.id === myId ? ' (toi)' : ''}</span>${p.dc ? '<span class="small">reconnexion…</span>' : ''}${p.id === hostId ? '<span class="b">HÔTE</span>' : ''}</div>`).join('');
+  $('#pList').innerHTML = roster.map(p => `<div class="pl ${cfg.teams ? 't' + p.team : ''} ${p.dc ? 'dc' : ''}"><span class="ico">${CLASSES[p.cls].ico}</span><span class="n">${esc(p.name)}${p.id === myId ? ' (toi)' : ''}</span>${p.bot ? '<span class="small">bot</span>' : ''}${p.dc ? '<span class="small">reconnexion…</span>' : ''}${p.id === hostId ? '<span class="b">HÔTE</span>' : ''}</div>`).join('');
   const tp = $('#teamPick');
   if (cfg.teams) {
     const me = roster.find(p => p.id === myId);
     tp.innerHTML = `<span class="small">Ton équipe :</span>` + [0, 1].map(t => `<button class="chip ${me && me.team === t ? 'on' : ''}" data-t="${t}" style="border-color:${TEAMC[t]}">Équipe ${TEAMN[t]}</button>`).join('');
     tp.querySelectorAll('button').forEach(b => b.onclick = () => send({ t: 'team', team: +b.dataset.t }));
   } else tp.innerHTML = '';
+  $('#botBox').classList.toggle('hidden', !isHost);
+  $('#botAdd').disabled = roster.length >= 6; $('#botDel').disabled = !roster.some(p => p.bot);
+  document.querySelectorAll('#botLvl .chip').forEach(b => b.classList.toggle('on', b.dataset.v === (cfg.bots || 'normal')));
   $('#btnStart').classList.toggle('hidden', !isHost);
   $('#waitHost').classList.toggle('hidden', isHost);
   const me = roster.find(p => p.id === myId);
@@ -325,13 +337,14 @@ function onMsg(m) {
       break;
     }
     case 'start':
-      map = m.map; cfg = m.cfg; buildDecor(); snaps = []; clockOff = null; fx = []; floats = []; feed = []; trails.clear(); banner = null;
+      map = m.map; cfg = m.cfg; seenProj = new Set(); if (window.SND) SND.play('start'); buildDecor(); snaps = []; clockOff = null; fx = []; floats = []; feed = []; trails.clear(); banner = null;
       lastHp = null; wasAlive = true; screen = 'game'; show(null); paused = false; updPauseBtn(); setupSkillButtons(null); itemKey = ''; evoShown = false; $('#evoPick').classList.add('hidden');
       banner = { text: MAPS[map.key].n, sub: MAPS[map.key].tip || 'Collecte 10 artefacts pour évoluer !', t: performance.now(), d: 3000 };
       break;
     case 's': onSnap(m); break;
     case 'pause': setPaused(!!m.on); break;
-    case 'end': screen = 'end'; paused = false; show('sEnd'); renderEnd(m); resetInput(); evoShown = false; $('#evoPick').classList.add('hidden'); break;
+    case 'end': screen = 'end'; paused = false; show('sEnd'); renderEnd(m);
+      if (window.SND) { const first = m.ranking[0]; SND.play(m.survival || (first && first.id === myId) || (m.teams && m.ts[teamOf(myId)] > m.ts[1 - teamOf(myId)]) ? 'win' : 'lose'); } resetInput(); evoShown = false; $('#evoPick').classList.add('hidden'); break;
     case 'err': toast(m.msg); break;
   }
 }
@@ -342,9 +355,15 @@ function onSnap(m) {
   const off = now - m.n;
   clockOff = clockOff == null ? off : Math.min(off, clockOff + 0.003);
   const s = { n: m.n, tl: m.tl, ts: m.ts, sv: m.sv, P: new Map(), M: new Map(), R: new Map(), A: m.a, Wl: m.w || [], TR: m.tr || [], Z: m.z || [], C: m.c || [] };
-  for (const p of m.p) s.P.set(p[0], { id: p[0], x: p[1], y: p[2], f: p[3], hp: p[4], mhp: p[5], fl: p[6], art: p[7], cd: [p[8], p[9], p[10]], ra: p[11], lv: p[12], ev: p[13], it: p[14], bo: p[15], inx: p[16] });
+  for (const p of m.p) s.P.set(p[0], { id: p[0], x: p[1], y: p[2], f: p[3], hp: p[4], mhp: p[5], fl: p[6], art: p[7], cd: [p[8], p[9], p[10], p[17] || 0, p[18] || 0], ra: p[11], lv: p[12], ev: p[13], it: p[14], bo: p[15], inx: p[16] });
   for (const x of m.m) s.M.set(x[0], { id: x[0], type: x[1], x: x[2], y: x[3], f: x[4], hp: x[5], mhp: x[6], own: x[7], fl: x[8] });
-  for (const x of m.pr) s.R.set(x[0], { id: x[0], k: x[1], x: x[2], y: x[3] });
+  const nowSeen = new Set();
+  for (const x of m.pr) {
+    s.R.set(x[0], { id: x[0], k: x[1], x: x[2], y: x[3] });
+    nowSeen.add(x[0]);
+    if (!seenProj.has(x[0]) && PROJ_SND[x[1]]) sfx(PROJ_SND[x[1]], x[2], x[3], 0.8);
+  }
+  seenProj = nowSeen;
   snaps.push(s); if (snaps.length > 40) snaps.shift();
   teamScore = m.ts;
   for (const e of m.e) onEvent(e);
@@ -358,7 +377,48 @@ function onSnap(m) {
     showEvoPick(!!(me.fl & 1024) && (me.fl & 1));
   }
 }
-function vibrate(ms) { try { if (isTouch && navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+function vibrate(ms) { if (isTouch && window.SND) SND.vib(ms); }
+// ---------- sons : volume selon la distance à la caméra
+function sfx(name, x, y, boost = 1) {
+  if (!window.SND) return;
+  let v = boost;
+  if (x != null && cam) { const d = Math.hypot(x - cam.x, y - cam.y); v *= Math.max(0, 1 - d / 900); }
+  SND.play(name, v);
+}
+const PROJ_SND = { bolt: 'magic', bolt2: 'magic', bolt3: 'fire', soul: 'magic', foxfire: 'magic', plasmab: 'magic', plasma: 'magic', fire: 'fire', firearrow: 'fire',
+  arrow: 'arrow', arrow2: 'arrow', arrowh: 'arrow', bigarrow: 'arrow', spear: 'arrow', thorn: 'arrow', rivet: 'gun', laser: 'gun', shuri: 'shuri',
+  grenade: 'launch', rocket: 'launch', bat: 'bat', acid: 'spit' };
+let seenProj = new Set();
+function eventSound(e) {
+  const me = e.i === myId;
+  switch (e.k) {
+    case 'hit': if (me) sfx('hit'); else sfx('tick', e.x, e.y, 0.6); break;
+    case 'slash': sfx(e.f === 'golem' || e.f === 'minotaure' || e.f === 'ent' || e.f === 'barbare' ? 'heavy' : 'swing', e.x, e.y); break;
+    case 'bite': sfx('swing', e.x, e.y, 0.5); break;
+    case 'boom': case 'quake': sfx('boom', e.x, e.y); break;
+    case 'blink': sfx('magic', e.x1, e.y1); break;
+    case 'smoke': case 'gust': case 'grab': sfx('whoosh', e.x || e.x1, e.y || e.y1); break;
+    case 'summon': sfx('summon', e.x, e.y); break;
+    case 'shield': sfx('shield', e.x, e.y); break;
+    case 'roar': sfx('roar', e.x, e.y); break;
+    case 'holy': sfx('chime', e.x, e.y); break;
+    case 'drain': sfx('magic', e.x1, e.y1); break;
+    case 'chain': sfx('zap', e.pts[0][0], e.pts[0][1]); break;
+    case 'snap': sfx('snap', e.x, e.y); break;
+    case 'die': sfx('die', e.x, e.y, 0.7); break;
+    case 'pick': if (me) sfx('pick'); break;
+    case 'crate': if (me) sfx('crate'); break;
+    case 'item': if (me) sfx('item'); break;
+    case 'heal': if (me && e.h >= 3) sfx('heal'); break;
+    case 'spawn': if (me) sfx('spawn'); break;
+    case 'evo': if (me) sfx(e.on ? 'evo' : 'lose'); break;
+    case 'rebirth': sfx('evo', e.x, e.y); break;
+    case 'ult': if (e.on) sfx('ult', e.x, e.y, me ? 1.3 : 1); break;
+    case 'kill': if (e.ak === myId) sfx('kill'); else if (e.bk === myId) sfx('death'); break;
+    case 'wave': sfx(e.st === 'start' ? 'wave' : 'win'); break;
+    case 'boss': sfx('boss'); break;
+  }
+}
 const nameOf = id => { const p = roster.find(q => q.id === id); return p ? p.name : '?'; };
 const clsOf = id => { const p = roster.find(q => q.id === id); return p ? p.cls : 'mage'; };
 const teamOf = id => { const p = roster.find(q => q.id === id); return p ? p.team : 0; };
@@ -366,6 +426,7 @@ const isAlly = id => id === myId || !!(cfg && (cfg.survival || (cfg.teams && tea
 const formOf = p => (p.fl & 2) && p.ev >= 0 ? CLASSES[clsOf(p.id)].evos[p.ev] : clsOf(p.id);
 
 function onEvent(e) {
+  eventSound(e);
   const t = performance.now();
   switch (e.k) {
     case 'hit': floats.push({ x: e.x + (Math.random() * 16 - 8), y: e.y, text: e.d, col: e.i === myId ? '#ff6b6b' : '#fff', t, d: 700 }); break;
@@ -393,13 +454,13 @@ function onEvent(e) {
     case 'evo': {
       fx.push({ k: 'evo', x: e.x, y: e.y, on: e.on, t, d: 1000 });
       const fn = (FORMS[e.f] || { n: '?' }).n;
-      if (e.i === myId) { banner = e.on ? { text: 'ÉVOLUTION !', sub: 'Tu deviens ' + fn + ' : +50 % vie, +30 % dégâts', t, d: 2600, gold: 1 } : { text: 'Évolution perdue', sub: 'Moins de 10 artefacts…', t, d: 2000 }; vibrate(e.on ? [60, 40, 120] : 80); shake = 10; }
+      if (e.i === myId) { banner = e.on ? { text: 'ÉVOLUTION !', sub: fn + ' : +50 % vie, +30 % dégâts, + ' + (EVO_ADD[e.f] || ''), t, d: 2800, gold: 1 } : { text: 'Évolution perdue', sub: 'Moins de 10 artefacts…', t, d: 2000 }; vibrate(e.on ? [60, 40, 120] : 80); shake = 10; }
       else if (e.on) addFeed(`${nameOf(e.i)} est devenu ${fn} !`, '#ffd98a');
       break;
     }
     case 'ult':
       fx.push({ k: 'evo', x: e.x, y: e.y, on: 1, t, d: 1400 }, { k: 'ring', x: e.x, y: e.y, c: '#7fe8ff', t, d: 900 });
-      if (e.i === myId) { banner = e.on ? { text: 'ÉVOLUTION ULTIME !', sub: 'Vie ×2, dégâts +60 %, régénération 1 %/s', t, d: 3200, gold: 1 } : { text: 'Évolution ultime perdue', sub: 'Moins de 50 artefacts…', t, d: 2000 }; vibrate(e.on ? [80, 40, 80, 40, 200] : 80); shake = 12; }
+      if (e.i === myId) { banner = e.on ? { text: 'ÉVOLUTION ULTIME !', sub: 'Vie ×2, dégâts +60 %, régénération + Tempête ultime', t, d: 3200, gold: 1 } : { text: 'Évolution ultime perdue', sub: 'Moins de 50 artefacts…', t, d: 2000 }; vibrate(e.on ? [80, 40, 80, 40, 200] : 80); shake = 12; }
       else if (e.on) addFeed(`⚡ ${nameOf(e.i)} a atteint l'évolution ULTIME !`, '#7fe8ff');
       break;
     case 'chain': fx.push({ k: 'chain', pts: e.pts, t, d: 380 }); shakeNear(e.pts[0][0], e.pts[0][1], 4); break;
@@ -494,7 +555,7 @@ jz.addEventListener('pointermove', e => {
 const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joyEl.classList.add('hidden'); };
 jz.addEventListener('pointerup', joyEnd); jz.addEventListener('pointercancel', joyEnd);
 // boutons
-const btnBits = { bAtk: 1, bS1: 2, bS2: 4, bItem: 8 };
+const btnBits = { bAtk: 1, bS1: 2, bS2: 4, bItem: 8, bS3: 16, bS4: 32 };
 let touchB = 0;
 for (const id in btnBits) {
   const el = $('#' + id);
@@ -505,8 +566,9 @@ for (const id in btnBits) {
 let curForm = null;
 function setupSkillButtons(form) {
   curForm = form || myClsInGame();
-  const sk = curForm.endsWith('+') ? ULT_SK : FORMS[curForm].sk;
-  [['bS1', 0], ['bS2', 1]].forEach(([id, i]) => { const el = $('#' + id); el.querySelector('.e').textContent = SK_ICO[sk[i]] || '✦'; el.querySelector('.s').textContent = shortSk(sk[i]); });
+  const ult = curForm.endsWith('+'), f = curForm.replace('+', ''), base = FORMS[myClsInGame()].sk;
+  const set = (id, n) => { const el = $('#' + id); el.classList.toggle('hidden', !n); if (!n) return; el.querySelector('.e').textContent = SK_ICO[n] || '✦'; el.querySelector('.s').textContent = shortSk(n); };
+  set('bS1', base[0]); set('bS2', base[1]); set('bS3', EVO_ADD[f] || null); set('bS4', ult ? ULT_ADD : null);
 }
 let itemKey = '';
 function updItemBtn(me) {
@@ -528,7 +590,8 @@ function showEvoPick(on) {
   const c = CLASSES[clsOf(myId)];
   box.querySelectorAll('button').forEach((b, k) => {
     const f = FORMS[c.evos[k]];
-    b.innerHTML = `<span class="ei">${f.ico}</span><b>${f.n}</b><small>${SK_ICO[f.sk[0]] || ''} ${f.sk[0]}<br>${SK_ICO[f.sk[1]] || ''} ${f.sk[1]}</small>`;
+    const add = EVO_ADD[c.evos[k]];
+    b.innerHTML = `<span class="ei">${f.ico}</span><b>${f.n}</b><small>+ ${SK_ICO[add] || ''} ${add}</small>`;
   });
   vibrate([40, 30, 40]);
 }
@@ -552,7 +615,9 @@ setInterval(() => {
   if (mouse.down || keys.has(' ')) b |= 1;
   if (keys.has('e') || keys.has('1') || keys.has('shift')) b |= 2;
   if (keys.has('r') || keys.has('2')) b |= 4;
-  if (keys.has('f') || keys.has('3')) b |= 8;
+  if (keys.has('f')) b |= 8;
+  if (keys.has('c') || keys.has('3')) b |= 16;
+  if (keys.has('v') || keys.has('4')) b |= 32;
   if (evoShown && !$('#evoPick').classList.contains('hidden')) { if (keys.has('1') || keys.has('&')) { keys.delete('1'); keys.delete('&'); $('#evoPick button[data-k="0"]').click(); } }
   let a = null;
   if (!isTouch && mouse.in) a = Math.round(Math.atan2(mouse.y - innerHeight / 2, mouse.x - innerWidth / 2) * 100) / 100;
@@ -1105,6 +1170,16 @@ function drawZones(Z, now, sn) {
         ctx.strokeStyle = 'rgba(110,220,140,.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
         ctx.fillStyle = 'rgba(140,255,170,.8)'; for (let i = 0; i < 6; i++) { const ph = ((now / 900) + i / 6) % 1, an = i * 2.2; const px = x + Math.cos(an) * r * .6, py = y + Math.sin(an) * r * .6 - ph * 30; ctx.globalAlpha = 1 - ph; ctx.fillRect(px - 5, py - 1.5, 10, 3); ctx.fillRect(px - 1.5, py - 5, 3, 10); }
         break;
+      case 'banner':
+        ctx.fillStyle = 'rgba(255,215,110,.12)'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,215,110,.6)'; ctx.lineWidth = 3; ctx.setLineDash([12, 8]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.strokeStyle = '#6b4a24'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y + 14); ctx.lineTo(x, y - 30); ctx.stroke();
+        ctx.fillStyle = '#2e6bd1'; ctx.beginPath(); ctx.moveTo(x, y - 30); ctx.lineTo(x + 24 + Math.sin(now / 200) * 3, y - 24); ctx.lineTo(x, y - 16); ctx.fill();
+        ctx.fillStyle = '#ffd76a'; ctx.fillRect(x + 5, y - 26, 6, 6);
+        break;
+      case 'spore':
+        for (let i = 0; i < 10; i++) { const an = i * 0.63 + now / 1500, d = (i * 29 % 100) / 100 * r * .8; ctx.fillStyle = `rgba(140,${170 + i * 5},60,${0.22 + 0.06 * Math.sin(now / 300 + i)})`; ctx.beginPath(); ctx.arc(x + Math.cos(an) * d, y + Math.sin(an) * d, r * .35, 0, 7); ctx.fill(); }
+        break;
       case 'inferno': {
         const g = ctx.createRadialGradient(x, y, r * .2, x, y, r);
         g.addColorStop(0, 'rgba(255,200,60,.05)'); g.addColorStop(.7, 'rgba(255,90,20,.22)'); g.addColorStop(1, 'rgba(255,40,0,.35)');
@@ -1149,6 +1224,9 @@ function drawTraps(TR, now) {
     if (k === 'mine') {
       ctx.fillStyle = '#3a3a3a'; ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.fill(); ctx.strokeStyle = '#777'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = Math.floor(now / 400 + id) % 2 ? '#ff2a2a' : '#6a1010'; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fill();
+    } else if (k === 'seed') {
+      ctx.fillStyle = '#7a4a1a'; ctx.beginPath(); ctx.ellipse(x, y, 9, 12, 0.4, 0, 7); ctx.fill();
+      ctx.fillStyle = '#9ccf4a'; ctx.beginPath(); ctx.ellipse(x + 3, y - 12, 4, 7, 0.6, 0, 7); ctx.fill();
     } else if (k === 'trap') {
       ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 12, 0, 7); ctx.stroke();
       for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(x + Math.cos(an) * 12, y + Math.sin(an) * 12); ctx.lineTo(x + Math.cos(an) * 6, y + Math.sin(an) * 6); ctx.stroke(); }
@@ -1641,9 +1719,14 @@ function drawHud(rs, me, now) {
       updBtn('bS1', me.cd[1], sn);
       updBtn('bS2', me.cd[2], sn);
       updBtn('bItem', itemReady, sn);
+      if (sk[2]) updBtn('bS3', me.cd[3], sn);
+      if (sk[3]) updBtn('bS4', me.cd[4], sn);
     } else {
-      const items = [['Clic', 'Attaque', me.cd[0]], ['E', sk[0], me.cd[1]], ['R', sk[1], me.cd[2]], ['F', (me.bo ? '★ ' : '×' + me.it + ' ') + itm.n, itemReady, itm.ico]];
-      const bw = 128, gap = 10, x0 = W / 2 - (items.length * bw + (items.length - 1) * gap) / 2, y0 = H - 62;
+      const items = [['Clic', 'Attaque', me.cd[0]], ['E', sk[0], me.cd[1]], ['R', sk[1], me.cd[2]]];
+      if (sk[2]) items.push(['C', sk[2], me.cd[3]]);
+      if (sk[3]) items.push(['V', sk[3], me.cd[4]]);
+      items.push(['F', (me.bo ? '★ ' : '×' + me.it + ' ') + itm.n, itemReady, itm.ico]);
+      const bw = items.length > 5 ? 112 : 124, gap = 10, x0 = W / 2 - (items.length * bw + (items.length - 1) * gap) / 2, y0 = H - 62;
       items.forEach(([key, nm, cd], i) => {
         const x = x0 + i * (bw + gap), left = cd - sn;
         ctx.fillStyle = 'rgba(0,0,0,.55)'; rrect(x, y0, bw, 50, 10); ctx.fill();
@@ -1700,4 +1783,23 @@ if (sess0 && joinCode && sess0.room === joinCode) {
   connect(() => send({ t: 'resume', room: sess0.room, token: sess0.token }));
   setTimeout(() => { if (screen === 'resuming') { screen = 'home'; show('sHome'); } }, 6000);
 } else show('sHome');
+})();
+
+// ---------------------------------------------------------- réglages (son, musique, vibrations)
+(() => {
+  const box = document.querySelector('#setBox'); if (!box || !window.SND) return;
+  const S = SND.settings;
+  const render = () => {
+    box.querySelectorAll('[data-set]').forEach(b => { const on = !!S[b.dataset.set]; b.classList.toggle('on', on); b.querySelector('i').textContent = on ? 'Activé' : 'Désactivé'; });
+    box.querySelector('#setVol').value = Math.round(S.vol * 100);
+  };
+  box.querySelectorAll('[data-set]').forEach(b => b.onclick = () => { SND.set(b.dataset.set, !S[b.dataset.set]); render(); if (b.dataset.set === 'vib') SND.vib(60); SND.play('click'); });
+  box.querySelector('#setVol').oninput = e => { SND.set('vol', e.target.value / 100); };
+  box.querySelector('#setVol').onchange = () => SND.play('pick');
+  const open = () => { render(); box.classList.remove('hidden'); };
+  document.querySelectorAll('.btnSet').forEach(b => b.onclick = open);
+  box.querySelector('#setClose').onclick = () => box.classList.add('hidden');
+  box.addEventListener('pointerdown', e => e.stopPropagation());
+  // petit clic sur les boutons des menus
+  document.addEventListener('click', e => { if (e.target.closest('.btn, .chip, .cls, .map, .gb')) SND.play('click'); });
 })();

@@ -132,9 +132,9 @@ const CLS = {
   barbare:   { hp: 150, spd: 195, r: 20, item: 'barr' },
   ninja:     { hp: 105, spd: 245, r: 17, item: 'mine' },
   archer:    { hp: 85,  spd: 235, r: 17, item: 'trap' },
-  paladin:   { hp: 140, spd: 200, r: 19, item: 'gpotion' },
+  paladin:   { hp: 140, spd: 200, r: 19, item: 'banner' },
   ingenieur: { hp: 95,  spd: 210, r: 18, item: 'elec' },
-  druide:    { hp: 110, spd: 205, r: 18, item: 'shroom' },
+  druide:    { hp: 110, spd: 205, r: 18, item: 'seed' },
   vampire:   { hp: 105, spd: 225, r: 18, item: 'vial' }
 };
 // deux évolutions au choix par classe
@@ -145,6 +145,12 @@ const EVO = {
 };
 const FORM_SPD = { golem: 0.88, ent: 0.85, mecha: 0.85, minotaure: 0.95, sylphe: 1.12, loupgarou: 1.15, kitsune: 1.05 };
 const ITEM_MAX = 3, ITEM_CD = 12;
+// compétence ajoutée par chaque évolution (3e bouton)
+const EVO_SKILL = {
+  liche: 'liche1', elementaire: 'elementaire0', golem: 'golem1', minotaure: 'minotaure1', serpent: 'serpent1', kitsune: 'kitsune0',
+  phenix: 'phenix1', sylphe: 'sylphe1', archange: 'archange1', noir: 'noir1', mecha: 'mecha0', essaim: 'essaim1',
+  ent: 'ent1', loupgarou: 'loupgarou1', seigneur: 'brume', gargouille: 'gargouille1'
+};
 const BONUS = ['mine', 'barr', 'potion', 'bomb', 'haste', 'armor'];
 const EVO_HP = 1.5, EVO_DMG = 1.3, EVO_AT = 10;
 // évolution ultime
@@ -346,12 +352,23 @@ function cleanCfg(c, prev) {
     score: [0, 10, 20, 30].includes(+c.score) ? +c.score : p.score,
     teams: typeof c.teams === 'boolean' ? c.teams : p.teams,
     survival: typeof c.survival === 'boolean' ? c.survival : !!p.survival,
-    lives: [1, 3, 5, 10].includes(+c.lives) ? +c.lives : (p.lives || 3)
+    lives: [1, 3, 5, 10].includes(+c.lives) ? +c.lives : (p.lives || 3),
+    bots: ['facile', 'normal', 'difficile'].includes(c.bots) ? c.bots : (p.bots || 'normal')
   };
   if (o.survival) o.teams = false;
   return o;
 }
 const cleanName = n => (String(n || '').replace(/[<>]/g, '').trim().slice(0, 14)) || 'Joueur';
+// ---------------------------------------------------------------- Bots
+const BOT_NAMES = ['Arès', 'Ragnar', 'Kira', 'Zéphyr', 'Nova', 'Titan', 'Lilith', 'Orion', 'Freya', 'Kaï', 'Médusa', 'Brutus'];
+const BOT_LVL = {
+  facile:    { think: 0.4,  aim: 0.45, skill: 0.12, dmg: 0.6 },
+  normal:    { think: 0.22, aim: 0.18, skill: 0.35, dmg: 0.85 },
+  difficile: { think: 0.1,  aim: 0.05, skill: 0.75, dmg: 1 }
+};
+// classes qui préfèrent combattre à distance (base ou évolution)
+const RANGED = new Set(['mage', 'liche', 'elementaire', 'archer', 'phenix', 'sylphe', 'ingenieur', 'mecha', 'essaim', 'druide', 'kitsune']);
+const fakeConn = () => ({ send() {}, sendRaw() {}, close() {}, bot: true });
 const cleanCls = c => Object.prototype.hasOwnProperty.call(CLS, c) ? c : 'mage';
 // distance d'un point à un segment
 function segDist(px, py, x1, y1, x2, y2) {
@@ -371,7 +388,7 @@ class Room {
   roster() {
     this.broadcast({
       t: 'roster', host: this.host, state: this.state, cfg: this.cfg, ts: this.teamScore || [0, 0],
-      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls, team: p.team, kills: p.kills, deaths: p.deaths, dc: p.disconnected ? 1 : 0 }))
+      players: [...this.players.values()].map(p => ({ id: p.id, name: p.name, cls: p.cls, team: p.team, kills: p.kills, deaths: p.deaths, dc: p.disconnected ? 1 : 0, bot: p.bot ? 1 : 0 }))
     });
     this.rosterDirty = false;
   }
@@ -425,9 +442,10 @@ class Room {
     if (p.id === this.host) this.setPause(false);
     if (!this.players.has(p.id)) return;
     this.players.delete(p.id);
-    if (this.players.size === 0) { rooms.delete(this.id); return; }
+    const humans = [...this.players.values()].filter(q => !q.bot);
+    if (!humans.length) { rooms.delete(this.id); return; }
     if (this.host === p.id) {
-      const next = [...this.players.values()].find(q => !q.disconnected) || this.players.values().next().value;
+      const next = humans.find(q => !q.disconnected) || humans[0];
       this.host = next.id;
     }
     if (this.mobs) this.mobs = this.mobs.filter(m => m.owner !== p.id);
@@ -435,6 +453,88 @@ class Room {
     if (this.walls) this.walls = this.walls.filter(x => x.owner !== p.id);
     this.ev({ k: 'left', n: p.name });
     this.roster();
+  }
+  addBot(cls) {
+    if (this.players.size >= MAX_PLAYERS) return;
+    const used = new Set([...this.players.values()].map(q => q.name));
+    const name = '🤖 ' + (BOT_NAMES.find(n => !used.has('🤖 ' + n)) || 'Bot');
+    const keys = Object.keys(CLS);
+    this.addPlayer(fakeConn(), name, CLS[cls] ? cls : keys[Math.random() * keys.length | 0]);
+    const p = [...this.players.values()].pop();
+    p.bot = { next: 0, wp: null, stuck: 0, lx: 0, ly: 0, detour: 0, dDir: 1 };
+    this.roster();
+  }
+  removeBot() {
+    const b = [...this.players.values()].filter(q => q.bot).pop();
+    if (b) this.removePlayer(b);
+  }
+  // ---------- intelligence des bots : choisit déplacement, visée, attaques
+  botThink(p, t) {
+    const B = p.bot, L = BOT_LVL[this.cfg.bots] || BOT_LVL.normal;
+    if (t < B.next) return;
+    B.next = t + L.think * (0.8 + Math.random() * 0.4);
+    if (p.needPick) { p.evoPick = Math.random() < 0.5 ? 0 : 1; this.updEvo(p); }
+    const f = this.form(p), ranged = RANGED.has(f), hpK = p.hp / p.maxHp;
+    // cible : ennemi le plus proche (joueur ou PNJ)
+    let tg = null, td = 1e9;
+    for (const e of this.targets()) {
+      if (!this.isEnemy(p, e) || this.hidden(e)) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      const w = d * (e.isMob && !this.cfg.survival ? 1.4 : 1); // en JcJ, préfère les joueurs
+      if (w < td) { td = w; tg = e; }
+    }
+    if (tg) td = Math.hypot(tg.x - p.x, tg.y - p.y);
+    // objectif : artefact ou caisse proche et sans danger
+    let goal = null;
+    const safe = !tg || td > 260;
+    if (safe) {
+      let gd = 420;
+      for (const a of this.arts) { const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < gd) { gd = d; goal = a; } }
+      if (!p.bonus) for (const c of this.crates) { const d = Math.hypot(c.x - p.x, c.y - p.y); if (d < gd) { gd = d; goal = c; } }
+    }
+    let mx = 0, my = 0, b = 0;
+    const want = ranged ? 280 : 30;
+    if (tg && hpK < 0.25 && td < 300 && !this.cfg.survival) {
+      // fuite
+      mx = p.x - tg.x; my = p.y - tg.y;
+    } else if (goal) {
+      mx = goal.x - p.x; my = goal.y - p.y;
+    } else if (tg && td < 900) {
+      const dx = tg.x - p.x, dy = tg.y - p.y;
+      if (td > want + 40) { mx = dx; my = dy; }
+      else if (ranged && td < want - 90) { mx = -dx; my = -dy; }
+      else { mx = -dy * B.dDir; my = dx * B.dDir; if (Math.random() < 0.05) B.dDir *= -1; } // tourne autour
+    } else {
+      // exploration
+      if (!B.wp || Math.hypot(B.wp.x - p.x, B.wp.y - p.y) < 60 || Math.random() < 0.02) B.wp = freeSpot(this.map, 30);
+      mx = B.wp.x - p.x; my = B.wp.y - p.y;
+    }
+    // contourne les obstacles quand il est coincé
+    const moved = Math.hypot(p.x - B.lx, p.y - B.ly); B.lx = p.x; B.ly = p.y;
+    if ((mx || my) && moved < 4) B.stuck++; else B.stuck = 0;
+    if (B.stuck >= 2) { B.detour = t + 0.8; B.dDir = Math.random() < 0.5 ? 1 : -1; B.stuck = 0; }
+    if (B.detour > t) { const a = Math.atan2(my, mx) + 1.4 * B.dDir; mx = Math.cos(a); my = Math.sin(a); }
+    const m = Math.hypot(mx, my) || 1;
+    p.in.mx = mx / m; p.in.my = my / m;
+    // visée et attaques
+    p.in.a = null;
+    if (tg && td < 650) {
+      p.in.a = Math.atan2(tg.y - p.y, tg.x - p.x) + (Math.random() - 0.5) * 2 * L.aim;
+      const reach = ranged ? 560 : 110;
+      if (td < reach) b |= 1;
+      if (td < (ranged ? 480 : 200)) {
+        if (Math.random() < L.skill) b |= 2;
+        if (Math.random() < L.skill) b |= 4;
+        if (p.evolved && Math.random() < L.skill) b |= 16;
+        if (p.ultimate && Math.random() < L.skill) b |= 32;
+      }
+    }
+    // objets : soin quand blessé, sinon pose quand un ennemi approche
+    const it = p.bonus || CLS[p.cls].item, heals = it === 'vial' || it === 'potion';
+    if (!p.itemHeld && (p.bonus || p.items > 0)) {
+      if (heals ? hpK < 0.45 : (tg && td < 260 && Math.random() < L.skill * 0.5)) b |= 8;
+    }
+    p.in.b = b;
   }
   smallerTeam(except) {
     if (!this.cfg.teams) return 0;
@@ -450,7 +550,7 @@ class Room {
   resetHero(p) {
     const c = CLS[p.cls];
     p.artifacts = TEST_ARTS; p.evolved = false; p.ultimate = false; p.evoPick = null; p.needPick = false;
-    p.r = c.r; p.maxHp = c.hp; p.hp = c.hp; p.cd = [0, 0, 0];
+    p.r = c.r; p.maxHp = c.hp; p.hp = c.hp; p.cd = [0, 0, 0, 0, 0];
     p.items = ITEM_MAX; p.itemNext = 0; p.bonus = null;
     this.clearBuffs(p);
   }
@@ -620,7 +720,7 @@ class Room {
     for (const z of this.zones) if (z.slow && this.teamKey(e) !== z.tk && this.inZone(z, e)) k = Math.min(k, z.slow);
     return k;
   }
-  mult(p) { let m = p.ultimate ? ULT_DMG : p.evolved ? EVO_DMG : 1; if (p.invisUntil > this.t) m *= 1.5; if (p.rageUntil > this.t) m *= 1.35; return m; }
+  mult(p) { let m = p.ultimate ? ULT_DMG : p.evolved ? EVO_DMG : 1; if (p.bot) m *= (BOT_LVL[this.cfg.bots] || BOT_LVL.normal).dmg; if (p.invisUntil > this.t) m *= 1.5; if (p.rageUntil > this.t) m *= 1.35; return m; }
   heal(e, amt) {
     if (e.isMob ? e.dead : !e.alive) return 0;
     const g = Math.max(0, Math.min(e.maxHp - e.hp, Math.round(amt)));
@@ -643,6 +743,7 @@ class Room {
     if (!tg.isMob) {
       if (this.t < tg.invulnUntil) return 0;
       if (this.t < tg.armorUntil) amt *= 0.5;
+      for (const z of this.zones) if (z.k === 'banner' && z.tk === this.teamKey(tg) && this.inZone(z, tg)) { amt *= 0.7; break; }
       if (this.t < tg.shieldUntil) {
         // carapace : -70 % de dégâts et 30 % renvoyés à l'attaquant
         if (src && !reflected && src !== tg && (src.isMob ? !src.dead : src.alive) && src.hp != null) this.damage(src, amt * 0.3, tg, true);
@@ -768,16 +869,16 @@ class Room {
   }
   skill(p, i) {
     const f = this.form(p), m = this.mult(p), t = this.t, tk = this.teamKey(p);
-    const key = p.ultimate ? 'ultime' + i : f + i;
+    const key = i < 2 ? p.cls + i : i === 2 ? EVO_SKILL[f] : 'ultime';
     if (key !== 'ninja1') p.invisUntil = 0;
     const cd = v => { p.cd[i + 1] = t + v; };
     switch (key) {
       // ----- Évolution ultime (toutes classes)
-      case 'ultime0': this.zone({ k: 'inferno', x: p.x, y: p.y, r: 160, dmg: 12 * m, every: 0.5, until: t + 6, follow: p, src: p, tk }); this.ev({ k: 'roar', x: r0(p.x), y: r0(p.y), r: 160 }); cd(10); break;
-      case 'ultime1': {
-        // chaîne d'éclairs : rebondit sur 6 ennemis maximum
+      case 'ultime': {
+        // Tempête ultime : aura de feu + chaîne d'éclairs (rebondit sur 6 ennemis)
+        this.zone({ k: 'inferno', x: p.x, y: p.y, r: 160, dmg: 12 * m, every: 0.5, until: t + 6, follow: p, src: p, tk });
+        this.ev({ k: 'roar', x: r0(p.x), y: r0(p.y), r: 160 });
         let cur = this.nearestEnemy(p, 420);
-        if (!cur) { p.cd[2] = t + 0.5; break; }
         const hit = new Set(), pts = [[r0(p.x), r0(p.y)]];
         let dmg = 40 * m;
         for (let j = 0; j < 6 && cur; j++) {
@@ -788,8 +889,14 @@ class Room {
           for (const e of this.targets()) { if (!this.isEnemy(p, e) || hit.has(e.id) || this.hidden(e)) continue; const d = Math.hypot(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; next = e; } }
           cur = next;
         }
-        this.ev({ k: 'chain', pts }); cd(6); break;
+        if (pts.length > 1) this.ev({ k: 'chain', pts });
+        cd(10); break;
       }
+      case 'brume':
+        // Seigneur vampire : forme de brume, intouchable, rapide et invisible
+        p.invulnUntil = Math.max(p.invulnUntil, t + 2); p.hasteUntil = t + 2.5; p.invisUntil = t + 2.5;
+        p.stunUntil = p.rootUntil = 0; p.poison = p.constrict = null;
+        this.ev({ k: 'smoke', x: r0(p.x), y: r0(p.y) }); cd(12); break;
       // ----- Mage / Liche / Élémentaire
       case 'mage0': this.shoot(p, this.aim(p, 600), { kind: 'fire', spd: 520, dmg: 30 * m, r: 13, life: 1.3, aoe: 85 }); cd(4); break;
       case 'mage1': {
@@ -820,7 +927,7 @@ class Room {
       case 'serpent0': { const a = this.aim(p, 180), dps = 6 * m; this.melee(p, a, 100, 1.9, 22 * m, e => { e.poison = { dps, until: t + 4, next: t + 0.5, src: p }; }); cd(4); break; }
       case 'serpent1': {
         const tg = this.nearestEnemy(p, 150);
-        if (!tg) { p.cd[2] = t + 0.5; break; }
+        if (!tg) { cd(0.5); break; }
         if (!this.hard(tg)) tg.rootUntil = t + 2; tg.constrict = { until: t + 2, next: t + 0.5, dmg: 8 * m, src: p };
         p.face = Math.atan2(tg.y - p.y, tg.x - p.x);
         this.ev({ k: 'grab', x1: r0(p.x), y1: r0(p.y), x2: r0(tg.x), y2: r0(tg.y), i: tg.id });
@@ -853,7 +960,7 @@ class Room {
         for (const e of this.allies(p, 170)) this.heal(e, 25);
         this.ev({ k: 'holy', x: r0(p.x), y: r0(p.y), r: 170 }); cd(6); break;
       case 'archange1':
-        for (const e of this.allies(p, 260)) { if (!e.isMob) e.invulnUntil = Math.max(e.invulnUntil, t + 2); this.heal(e, 40); }
+        for (const e of this.allies(p, 260)) if (!e.isMob) e.invulnUntil = Math.max(e.invulnUntil, t + 2.5);
         this.ev({ k: 'holy', x: r0(p.x), y: r0(p.y), r: 260 }); cd(16); break;
       case 'noir0': this.melee(p, this.aim(p, 180), 95, 2.2, 30 * m, null, 1); cd(5); break;
       case 'noir1': this.zone({ k: 'dark', x: p.x, y: p.y, r: 130, dmg: 7 * m, ls: 1, every: 0.5, until: t + 5, follow: p, src: p, tk }); cd(10); break;
@@ -872,7 +979,7 @@ class Room {
       case 'druide0': { const s = this.spot(p, 480, 240); this.zone({ k: 'roots', x: s.x, y: s.y, r: 105, dmg: 6 * m, root: 1.6, every: 0.5, until: t + 2.0, src: p, tk }); cd(7); break; }
       case 'druide1': this.zone({ k: 'regen', x: p.x, y: p.y, r: 200, heal: 6, every: 0.5, until: t + 4, follow: p, src: p, tk }); cd(11); break;
       case 'ent0': this.zone({ k: 'roots', x: p.x, y: p.y, r: 210, dmg: 8 * m, root: 2.0, every: 0.5, until: t + 2.5, src: p, tk }); cd(9); break;
-      case 'ent1': p.armorUntil = t + 5; this.heal(p, 40); this.ev({ k: 'shield', i: p.id, x: r0(p.x), y: r0(p.y) }); cd(12); break;
+      case 'ent1': p.armorUntil = t + 6; p.stunUntil = p.rootUntil = 0; this.ev({ k: 'shield', i: p.id, x: r0(p.x), y: r0(p.y) }); cd(12); break;
       case 'loupgarou0': this.dashTo(p, this.aim(p, 320), 1300, 0.3, 25 * m, 0); cd(4); break;
       case 'loupgarou1': p.hasteUntil = t + 5; p.rageUntil = t + 5; this.ev({ k: 'roar', x: r0(p.x), y: r0(p.y), r: 120 }); cd(12); break;
       // ----- Vampire / Seigneur / Gargouille
@@ -880,7 +987,7 @@ class Room {
       case 'vampire1': { const a = this.aim(p, 550); for (let k = -2; k <= 2; k++) this.shoot(p, a + k * 0.22, { kind: 'bat', spd: 520, dmg: 9 * m, r: 8, life: 1.2, home: 1, ls: 0.5 }); cd(7); break; }
       case 'seigneur0': {
         const tg = this.nearestEnemy(p, 280);
-        if (!tg) { p.cd[1] = t + 0.5; break; }
+        if (!tg) { cd(0.5); break; }
         const got = this.damage(tg, 30 * m, p); this.heal(p, got);
         this.ev({ k: 'drain', x1: r0(p.x), y1: r0(p.y), x2: r0(tg.x), y2: r0(tg.y) }); cd(5); break;
       }
@@ -900,7 +1007,8 @@ class Room {
     const ahead = d => ({ x: clamp(p.x + ca * d, 20, this.map.w - 20), y: clamp(p.y + sa * d, 20, this.map.h - 20) });
     const keep = (list, k, max) => { const mine = list.filter(x => x.owner === p.id && x.k === k); while (mine.length >= max) { const o = mine.shift(); o.dead = true; } };
     switch (kind) {
-      case 'mine': case 'trap': case 'shroom': {
+      case 'banner': this.zone({ k: 'banner', x: p.x, y: p.y, r: 190, every: 99, until: t + 10, src: p, tk }); break;
+      case 'mine': case 'trap': case 'shroom': case 'seed': {
         keep(this.traps, kind, 4);
         const s = kind === 'shroom' ? ahead(40) : { x: p.x, y: p.y };
         this.traps.push({ id: pid++, k: kind, x: s.x, y: s.y, owner: p.id, tk, armAt: t + 0.8, until: t + 45, dmg: (kind === 'mine' ? 40 : 15) * m });
@@ -979,6 +1087,7 @@ class Room {
         if (this.teamKey(e) === tr.tk) continue;
         tr.dead = true;
         if (tr.k === 'mine') { this.explode(tr.x, tr.y, 95, tr.dmg, owner || { isMob: true, type: 'mine', owner: null, hp: null }, tr.tk); this.ev({ k: 'boom', x: r0(tr.x), y: r0(tr.y), r: 95 }); }
+        else if (tr.k === 'seed') { this.zone({ k: 'spore', x: tr.x, y: tr.y, r: 100, dmg: 6 * (tr.dmg / 15), every: 0.5, until: t + 4, src: owner || { isMob: true, hp: null }, tk: tr.tk }); this.ev({ k: 'snap', x: r0(tr.x), y: r0(tr.y) }); }
         else { this.damage(e, tr.dmg, owner); if (!this.hard(e)) e.rootUntil = Math.max(e.rootUntil || 0, t + 2.5); this.ev({ k: 'snap', x: r0(tr.x), y: r0(tr.y) }); }
         break;
       }
@@ -1013,6 +1122,7 @@ class Room {
     // --- joueurs
     for (const p of this.players.values()) {
       if (!p.alive) { if (t >= p.respawnAt) this.spawnPlayer(p); continue; }
+      if (p.bot) this.botThink(p, t);
       const stunned = t < p.stunUntil, rooted = stunned || t < p.rootUntil;
       const mx = p.in.mx, my = p.in.my, mag = Math.hypot(mx, my);
       if (p.dash) {
@@ -1041,6 +1151,8 @@ class Room {
         if ((p.in.b & 1) && t >= p.cd[0]) this.basic(p);
         if (p.alive && (p.in.b & 2) && t >= p.cd[1]) this.skill(p, 0);
         if (p.alive && (p.in.b & 4) && t >= p.cd[2]) this.skill(p, 1);
+        if (p.alive && p.evolved && (p.in.b & 16) && t >= p.cd[3]) this.skill(p, 2);
+        if (p.alive && p.ultimate && (p.in.b & 32) && t >= p.cd[4]) this.skill(p, 3);
         if (p.alive && (p.in.b & 8) && !p.itemHeld) this.useItem(p);
       }
       p.itemHeld = !!(p.in.b & 8);
@@ -1205,7 +1317,7 @@ class Room {
       if (p.whirl) f |= 256; if (p.dash) f |= 512; if (p.needPick) f |= 1024; if (p.hasteUntil > t) f |= 2048;
       if (p.rageUntil > t) f |= 4096; if (p.armorUntil > t) f |= 8192; if (p.rebirthUntil > t) f |= 16384; if (p.ultimate) f |= 32768;
       pl.push([p.id, r0(p.x), r0(p.y), r2(p.face), Math.max(0, r0(p.hp)), p.maxHp, f, p.artifacts, r2(p.cd[0]), r2(p.cd[1]), r2(p.cd[2]),
-        isFinite(p.respawnAt) ? r2(p.respawnAt) : -1, this.cfg.survival ? p.lives : -1, p.evoPick == null ? -1 : p.evoPick, p.items, p.bonus || 0, r2(p.itemNext)]);
+        isFinite(p.respawnAt) ? r2(p.respawnAt) : -1, this.cfg.survival ? p.lives : -1, p.evoPick == null ? -1 : p.evoPick, p.items, p.bonus || 0, r2(p.itemNext), r2(p.cd[3]), r2(p.cd[4])]);
     }
     const mb = this.mobs.map(m => {
       let f = 0; if (m.stunUntil > t) f |= 16; if (m.rootUntil > t) f |= 32; if (m.poison) f |= 64; if (m.boss) f |= 128;
@@ -1273,6 +1385,10 @@ function onConnect(c) {
         if (room.cfg.teams && !wasTeams) [...room.players.values()].forEach((q, i) => { q.team = i % 2; });
         room.roster(); break;
       }
+      case 'bot':
+        if (!room || room.host !== p.id || room.state !== 'lobby') return;
+        if (m.op === 'add') room.addBot(m.cls); else room.removeBot();
+        break;
       case 'start':
         if (!room || room.host !== p.id || room.state !== 'lobby') return;
         room.start(); break;
@@ -1289,7 +1405,7 @@ function onConnect(c) {
         if (!p) return;
         p.in.mx = clamp(+m.mx || 0, -1, 1); p.in.my = clamp(+m.my || 0, -1, 1);
         p.in.a = (typeof m.a === 'number' && isFinite(m.a)) ? m.a : null;
-        p.in.b = (m.b | 0) & 15;
+        p.in.b = (m.b | 0) & 63;
         break;
     }
   };
