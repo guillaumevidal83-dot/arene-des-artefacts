@@ -1,0 +1,10 @@
+{
+  "name": "L'Arène des Artefacts",
+  "short_name": "Arène",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#16120e",
+  "theme_color": "#16120e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
