@@ -78,6 +78,9 @@ en plein écran, comme une vraie appli.
 | Attaque | Bouton rouge | Clic gauche ou Espace |
 | Compétence 1 | Bouton bleu | E |
 | Compétence 2 | Bouton violet | R |
+| Objet | Bouton vert | F |
+| Pause (hôte) | Bouton ⏸ en bas | Échap |
+| Quitter | Bouton 🚪 en bas | Échap (invités) |
 
 ---
 
@@ -94,18 +97,36 @@ en plein écran, comme une vraie appli.
 
 - **10 artefacts = évolution** : +50 % de vie, +30 % de dégâts, nouvelles compétences.
 - Chaque artefact ramassé **soigne 5 % de la vie maximale**.
+- **50 artefacts = évolution ultime** : vie ×2, dégâts +60 %, régénération passive de 1 % de vie par seconde,
+  et deux compétences communes à toutes les classes : **Aura de feu** et **Chaîne d'éclairs** (rebondit sur 6 ennemis).
+  Sous 50 artefacts, on redescend à l'évolution normale.
 - Les artefacts sont rares : quelques-uns apparaissent au hasard sur la carte, et les PNJ vaincus en lâchent un 1 fois sur 3.
 - **À la mort, on perd 1 artefact** (il tombe au sol, le tueur peut le ramasser).
   Sous 10 artefacts, l'évolution est perdue.
 - Réapparition après 3 secondes, avec 1,5 seconde d'invulnérabilité.
 - Seules les éliminations de joueurs comptent pour le score.
 
-### Classes
-| Classe | Compétence 1 | Compétence 2 | Évolution | Compétence 1 | Compétence 2 |
-|---|---|---|---|---|---|
-| 🔮 Mage | Boule de feu (explose en zone) | Téléportation | **Liche** | Nuée d'âmes (7 projectiles) | Invoque 2 squelettes |
-| 🪓 Barbare | Charge (renverse et étourdit) | Tourbillon | **Golem** | Séisme (zone, étourdit) | Carapace 6 s (−70 % dégâts, renvoie 30 %, insensible aux étourdissements) |
-| 🥷 Ninja | 3 shurikens | Invisibilité 5 s (cassée dès qu'il attaque, attaque surprise +50 %) | **Serpent géant** | Morsure venimeuse | Constriction (immobilise) |
+### Classes (8) et évolutions (2 au choix chacune)
+À 10 artefacts, deux cartes apparaissent : touche celle que tu veux. Ton choix est gardé
+pour toute la partie (si tu perds puis récupères l'évolution, tu reprends la même forme).
+
+| Classe | Compétences | Évolution 1 | Évolution 2 | Objet |
+|---|---|---|---|---|
+| 🔮 Mage | Boule de feu · Téléportation | **Liche** : nuée d'âmes, squelettes | **Élémentaire de feu** : météore, aura de flammes | ❄️ Totem de glace (ralentit) |
+| 🪓 Barbare | Charge · Tourbillon | **Golem** : séisme, carapace | **Minotaure** : charge dévastatrice, rugissement | 🧱 Barricade destructible |
+| 🥷 Ninja | Shurikens · Invisibilité 5 s | **Serpent géant** : morsure, constriction | **Kitsune** : clones, feux follets | 💣 Mines (invisibles pour l'ennemi) |
+| 🏹 Archer | Flèche perçante · Pluie de flèches | **Phénix** : pluie de feu, renaissance | **Sylphe** : tempête de flèches guidées, rafale | 🪤 Piège à loup |
+| 🛡️ Paladin | Coup de bouclier · Aura de soin | **Archange** : lumière divine, bénédiction | **Chevalier noir** : frappe des ténèbres, aura vampirique | 🧪 Potion de groupe |
+| 🔧 Ingénieur | Tourelle · Grenade | **Mécha** : missiles, blindage | **Essaim** : drones, bombardement | ⚡ Clôture électrique |
+| 🌿 Druide | Ronces · Régénération | **Ent** : racines, écorce | **Loup-garou** : bond, frénésie | 🍄 Champignon de soin |
+| 🦇 Vampire | Morsure · Nuée de chauves-souris | **Seigneur vampire** : drain, nuée sanglante | **Gargouille** : plongeon, pétrification | 🩸 Fiole de sang |
+
+### Objets
+- Chaque classe a **3 charges** de son objet ; une charge revient toutes les 12 secondes.
+- Des **caisses de ravitaillement** (❓) apparaissent sur la carte : elles donnent un objet bonus
+  (mine, barricade, potion, bombe, bottes de vitesse ou armure), utilisé en priorité par le bouton Objet.
+- Les alliés ne se blessent jamais entre eux (survie et équipes), y compris avec les mines et les zones.
+  Seuls les geysers du désert glacé touchent tout le monde.
 
 ### Cartes et PNJ
 - 🏛️ **Colisée romain** : gladiateurs et lions
@@ -131,4 +152,4 @@ Tout est dans `server.js` :
 - `MOBS` : statistiques des PNJ
 
 Options de test (à ne pas utiliser en ligne) : `TEST_ARTS=10 node server.js` fait démarrer
-tout le monde évolué ; `TEST_DURATION=30` raccourcit la partie à 30 secondes ; `TEST_WAVE=4` fait commencer la survie à la vague 5.
+tout le monde évolué ; `TEST_DURATION=30` raccourcit la partie à 30 secondes ; `TEST_WAVE=4` fait commencer la survie à la vague 5 ; `TEST_ARTS=50` fait démarrer tout le monde à l'évolution ultime.
